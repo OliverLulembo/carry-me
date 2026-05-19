@@ -41,7 +41,12 @@ export function getDevices(token: string) {
 }
 
 // ── Top-up & share ──────────────────────────────────────────────────────────
-export type TopUpMethod = "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_KWACHA" | "CARD";
+export type TopUpMethod =
+  | "MTN_MOMO"
+  | "AIRTEL_MONEY"
+  | "ZAMTEL_KWACHA"
+  | "ZEDMOBILE_WALLET"
+  | "CARD";
 
 export function topUp(token: string, amount: number, method: TopUpMethod) {
   return api<{ balance: number; addedCredits: number }>("/api/topup", {

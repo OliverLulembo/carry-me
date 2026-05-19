@@ -8,7 +8,9 @@ import { WalletEntryKind } from "@prisma/client";
 // Here we just credit the wallet immediately and tag the entry so it's easy to filter later.
 const Schema = z.object({
   amount: z.number().int().min(10).max(2000),
-  method: z.enum(["MTN_MOMO", "AIRTEL_MONEY", "ZAMTEL_KWACHA", "CARD"]).default("MTN_MOMO"),
+  method: z
+    .enum(["MTN_MOMO", "AIRTEL_MONEY", "ZAMTEL_KWACHA", "ZEDMOBILE_WALLET", "CARD"])
+    .default("MTN_MOMO"),
 });
 
 export async function POST(req: NextRequest) {
