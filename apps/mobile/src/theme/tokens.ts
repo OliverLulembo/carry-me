@@ -18,11 +18,11 @@ export const colors = {
     700: "#3D372E",
     500: "#6E665C",
     300: "#A8A095",
-    100: "#E6E2DA",
+    100: "#F2CDBF",
   },
   surface: {
-    base: "#FAF8F3",
-    raised: "#FFFFFF",
+    base: "#FFF0E8",
+    raised: "#FFF8F4",
   },
   status: {
     success: "#22C55E",
@@ -36,9 +36,9 @@ export const colors = {
 // Pre-composed tints used by Pills, hover states, and ambient orbs. Kept in one
 // place so a single brand-palette change doesn't require touching every screen.
 export const tints = {
-  primarySoft: "rgba(243, 66, 19, 0.10)",
-  primaryGlow: "rgba(243, 66, 19, 0.20)",
-  primaryStrong: "rgba(243, 66, 19, 0.30)",
+  primarySoft: "rgba(243, 66, 19, 0.16)",
+  primaryGlow: "rgba(243, 66, 19, 0.28)",
+  primaryStrong: "rgba(243, 66, 19, 0.38)",
   secondarySoft: "rgba(190, 183, 164, 0.20)",
   secondaryGlow: "rgba(190, 183, 164, 0.35)",
   successSoft: "rgba(34, 197, 94, 0.14)",

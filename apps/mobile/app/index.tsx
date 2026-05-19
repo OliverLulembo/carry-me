@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
+  ScrollView,
 } from "react-native";
 import { Redirect } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -16,6 +17,7 @@ import { Button } from "@/components/Button";
 import { API_BASE_URL } from "@/api/client";
 
 const ONBOARDING_KEY = "carrymeOnboardingSeen";
+const LANGUAGE_KEY = "carrymeLanguage";
 
 const ONBOARDING = [
   require("../assets/Splash Screens/Splash Screen1.jpg"),
@@ -25,23 +27,47 @@ const ONBOARDING = [
 
 const VERTICAL_LOGO = require("../assets/Vertical Carry Me logo white text.png");
 
+const LANGUAGES = [
+  { code: "bem", name: "Bemba", region: "Zambia" },
+  { code: "nya", name: "Nyanja", region: "Zambia" },
+  { code: "loz", name: "Lozi", region: "Zambia" },
+  { code: "toi", name: "Tonga", region: "Zambia" },
+  { code: "lun", name: "Lunda", region: "Zambia" },
+  { code: "lue", name: "Luvale", region: "Zambia" },
+  { code: "kao", name: "Kaonde", region: "Zambia" },
+  { code: "en", name: "English", region: "Global" },
+  { code: "fr", name: "French", region: "Global" },
+  { code: "pt", name: "Portuguese", region: "Global" },
+  { code: "es", name: "Spanish", region: "Global" },
+  { code: "zh", name: "Mandarin", region: "Global" },
+  { code: "ar", name: "Arabic", region: "Global" },
+];
+
 export default function Index() {
   const { status, signInDev, error } = useAuth();
-  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [checkingSetup, setCheckingSetup] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [slide, setSlide] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    SecureStore.getItemAsync(ONBOARDING_KEY)
-      .then((seen) => {
-        if (!cancelled) setShowOnboarding(seen !== "1");
+    Promise.all([
+      SecureStore.getItemAsync(ONBOARDING_KEY),
+      SecureStore.getItemAsync(LANGUAGE_KEY),
+    ])
+      .then(([seenOnboarding, language]) => {
+        if (cancelled) return;
+        setShowOnboarding(seenOnboarding !== "1");
+        setShowLanguagePicker(!language);
       })
       .catch(() => {
-        if (!cancelled) setShowOnboarding(true);
+        if (cancelled) return;
+        setShowOnboarding(true);
+        setShowLanguagePicker(true);
       })
       .finally(() => {
-        if (!cancelled) setCheckingOnboarding(false);
+        if (!cancelled) setCheckingSetup(false);
       });
 
     return () => {
@@ -50,10 +76,16 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    if (!checkingOnboarding && !showOnboarding && status === "signedOut" && !error) {
+    if (
+      !checkingSetup &&
+      !showOnboarding &&
+      !showLanguagePicker &&
+      status === "signedOut" &&
+      !error
+    ) {
       signInDev().catch(() => {});
     }
-  }, [status, error, signInDev, checkingOnboarding, showOnboarding]);
+  }, [status, error, signInDev, checkingSetup, showOnboarding, showLanguagePicker]);
 
   async function advanceOnboarding() {
     if (slide < ONBOARDING.length - 1) {
@@ -65,11 +97,16 @@ export default function Index() {
     setShowOnboarding(false);
   }
 
-  if (status === "signedIn") {
+  async function chooseLanguage(code: string) {
+    await SecureStore.setItemAsync(LANGUAGE_KEY, code);
+    setShowLanguagePicker(false);
+  }
+
+  if (status === "signedIn" && !showLanguagePicker) {
     return <Redirect href="/(tabs)" />;
   }
 
-  if (checkingOnboarding || showOnboarding) {
+  if (checkingSetup || showOnboarding) {
     return (
       <View style={styles.onboarding}>
         <View style={styles.splashFrame}>
@@ -102,6 +139,42 @@ export default function Index() {
           </Text>
           <Feather name="arrow-right" size={18} color={colors.brand.primary} />
         </Pressable>
+      </View>
+    );
+  }
+
+  if (showLanguagePicker) {
+    return (
+      <View style={styles.languageScreen}>
+        <Image source={VERTICAL_LOGO} resizeMode="contain" style={styles.languageLogo} />
+        <View style={styles.languageIntro}>
+          <Text style={styles.languageTitle}>Choose your language</Text>
+          <Text style={styles.languageSub}>
+            Zambian languages come first, with a few major world languages below.
+          </Text>
+        </View>
+        <ScrollView
+          style={styles.languageList}
+          contentContainerStyle={styles.languageListContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {LANGUAGES.map((language) => (
+            <Pressable
+              key={language.code}
+              onPress={() => chooseLanguage(language.code)}
+              style={({ pressed }) => [
+                styles.languageOption,
+                pressed && { opacity: 0.86 },
+              ]}
+            >
+              <View>
+                <Text style={styles.languageName}>{language.name}</Text>
+                <Text style={styles.languageRegion}>{language.region}</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.brand.primary} />
+            </Pressable>
+          ))}
+        </ScrollView>
       </View>
     );
   }
@@ -271,5 +344,65 @@ const styles = StyleSheet.create({
     color: colors.brand.primary,
     fontSize: fontSize.md,
     fontWeight: "800",
+  },
+  languageScreen: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl + spacing.md,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.brand.primary,
+  },
+  languageLogo: {
+    alignSelf: "center",
+    width: 132,
+    height: 132,
+  },
+  languageIntro: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  languageTitle: {
+    color: colors.white,
+    fontSize: fontSize.xxl,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  languageSub: {
+    marginTop: spacing.sm,
+    color: colors.white,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  languageList: {
+    flex: 1,
+  },
+  languageListContent: {
+    gap: 10,
+    paddingBottom: spacing.lg,
+  },
+  languageOption: {
+    minHeight: 58,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  languageName: {
+    color: colors.brand.deep,
+    fontSize: fontSize.md,
+    fontWeight: "800",
+  },
+  languageRegion: {
+    marginTop: 2,
+    color: colors.ink[500],
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
 });
