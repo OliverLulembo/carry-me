@@ -9,6 +9,8 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
+  Image,
+  type ImageSourcePropType,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -27,7 +29,7 @@ import { formatZmw } from "@/lib/format";
 // teaser so the UI prepares people for the cash-load partner rollout.
 
 type TabId = "momo" | "card" | "booth";
-type Provider = "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_KWACHA";
+type Provider = "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_KWACHA" | "ZEDMOBILE_WALLET";
 
 type FlowState =
   | "idle"
@@ -45,12 +47,12 @@ const PRESETS = [20, 50, 100, 200];
 const PROVIDERS: {
   id: Provider;
   label: string;
-  short: string;
-  brandColor: string;
+  logo: ImageSourcePropType;
 }[] = [
-  { id: "MTN_MOMO", label: "MTN MoMo", short: "MTN", brandColor: "#FFCC00" },
-  { id: "AIRTEL_MONEY", label: "Airtel", short: "Airtel", brandColor: "#E60000" },
-  { id: "ZAMTEL_KWACHA", label: "Zamtel", short: "Zamtel", brandColor: "#0066B3" },
+  { id: "MTN_MOMO", label: "MTN MoMo", logo: require("../assets/payment-logos/momo.png") },
+  { id: "AIRTEL_MONEY", label: "Airtel Money", logo: require("../assets/payment-logos/airtel.png") },
+  { id: "ZAMTEL_KWACHA", label: "Zamtel Money", logo: require("../assets/payment-logos/zamtel.png") },
+  { id: "ZEDMOBILE_WALLET", label: "Zedmobile Wallet", logo: require("../assets/payment-logos/zedmobile.png") },
 ];
 
 export default function TopUpScreen() {
@@ -439,21 +441,9 @@ function MomoTab({
                 pressed && !active && { opacity: 0.85 },
               ]}
             >
-              <View
-                style={[styles.providerBadge, { backgroundColor: p.brandColor }]}
-              >
-                <Text style={styles.providerBadgeText}>
-                  {p.short.slice(0, 3).toUpperCase()}
-                </Text>
+              <View style={styles.providerBadge}>
+                <Image source={p.logo} style={styles.providerLogo} resizeMode="contain" />
               </View>
-              <Text
-                style={[
-                  styles.providerLabel,
-                  active && { color: colors.brand.primary },
-                ]}
-              >
-                {p.label}
-              </Text>
               {active && (
                 <View style={styles.providerCheck}>
                   <Feather name="check" size={10} color={colors.white} />
@@ -937,13 +927,16 @@ const styles = StyleSheet.create({
   },
   providerGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   provider: {
-    flex: 1,
+    width: "48.5%",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    minHeight: 122,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderRadius: radii.md,
     borderWidth: 2,
     borderColor: colors.ink[100],
@@ -955,23 +948,15 @@ const styles = StyleSheet.create({
     backgroundColor: tints.primarySoft,
   },
   providerBadge: {
-    width: 36,
-    height: 26,
-    borderRadius: 6,
+    width: 150,
+    height: 96,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  providerBadgeText: {
-    color: colors.white,
-    fontWeight: "800",
-    fontSize: 10,
-    letterSpacing: 0.6,
-  },
-  providerLabel: {
-    marginTop: 6,
-    color: colors.brand.deep,
-    fontWeight: "700",
-    fontSize: fontSize.xs,
+  providerLogo: {
+    width: 140,
+    height: 88,
   },
   providerCheck: {
     position: "absolute",
