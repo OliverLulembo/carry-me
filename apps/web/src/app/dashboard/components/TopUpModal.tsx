@@ -16,7 +16,7 @@ import {
 import { formatZmw } from "@/lib/format";
 
 type TabId = "momo" | "card" | "booth";
-type Provider = "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_KWACHA";
+type Provider = "MTN_MOMO" | "AIRTEL_MONEY" | "ZAMTEL_KWACHA" | "ZEDMOBILE_WALLET";
 
 // Staged flow states drive the multi-step processing UI. Mobile money and card
 // have different stages because the real-world flows look different (STK push
@@ -38,12 +38,12 @@ const PRESET_AMOUNTS = [20, 50, 100, 200];
 const PROVIDERS: {
   id: Provider;
   label: string;
-  short: string;
-  brandColor: string;
+  logo: string;
 }[] = [
-  { id: "MTN_MOMO", label: "MTN MoMo", short: "MTN", brandColor: "#FFCC00" },
-  { id: "AIRTEL_MONEY", label: "Airtel", short: "Airtel", brandColor: "#E60000" },
-  { id: "ZAMTEL_KWACHA", label: "Zamtel", short: "Zamtel", brandColor: "#0066B3" },
+  { id: "MTN_MOMO", label: "MTN MoMo", logo: "/payment-logos/momo.png" },
+  { id: "AIRTEL_MONEY", label: "Airtel Money", logo: "/payment-logos/airtel.png" },
+  { id: "ZAMTEL_KWACHA", label: "Zamtel Money", logo: "/payment-logos/zamtel.png" },
+  { id: "ZEDMOBILE_WALLET", label: "Zedmobile Wallet", logo: "/payment-logos/zedmobile.png" },
 ];
 
 export function TopUpModal({
@@ -446,7 +446,7 @@ function MomoTab({
       <label className="text-xs font-medium text-ink-500">
         Mobile money provider
       </label>
-      <div className="mt-2 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {PROVIDERS.map((p) => {
           const active = provider === p.id;
           return (
@@ -460,11 +460,13 @@ function MomoTab({
                   : "border-ink-100 hover:border-brand-primary/30 bg-surface"
               }`}
             >
-              <span
-                className="w-8 h-8 grid place-items-center rounded-lg text-white text-[10px] font-bold"
-                style={{ backgroundColor: p.brandColor }}
-              >
-                {p.short.slice(0, 3).toUpperCase()}
+              <span className="w-16 h-12 grid place-items-center overflow-hidden">
+                <img
+                  src={p.logo}
+                  alt=""
+                  className="max-h-12 max-w-16 object-contain"
+                  aria-hidden="true"
+                />
               </span>
               <span
                 className={`text-[11px] font-semibold ${active ? "text-brand-primary" : "text-brand-deep"}`}
