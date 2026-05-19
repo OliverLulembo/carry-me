@@ -28,19 +28,7 @@ const ONBOARDING = [
 const VERTICAL_LOGO = require("../assets/Vertical Carry Me logo white text.png");
 
 const LANGUAGES = [
-  { code: "bem", name: "Bemba", region: "Zambia" },
-  { code: "nya", name: "Nyanja", region: "Zambia" },
-  { code: "loz", name: "Lozi", region: "Zambia" },
-  { code: "toi", name: "Tonga", region: "Zambia" },
-  { code: "lun", name: "Lunda", region: "Zambia" },
-  { code: "lue", name: "Luvale", region: "Zambia" },
-  { code: "kao", name: "Kaonde", region: "Zambia" },
-  { code: "en", name: "English", region: "Global" },
-  { code: "fr", name: "French", region: "Global" },
-  { code: "pt", name: "Portuguese", region: "Global" },
-  { code: "es", name: "Spanish", region: "Global" },
-  { code: "zh", name: "Mandarin", region: "Global" },
-  { code: "ar", name: "Arabic", region: "Global" },
+  { code: "en", name: "English", region: "Available now" },
 ];
 
 export default function Index() {
@@ -150,7 +138,7 @@ export default function Index() {
         <View style={styles.languageIntro}>
           <Text style={styles.languageTitle}>Choose your language</Text>
           <Text style={styles.languageSub}>
-            Zambian languages come first, with a few major world languages below.
+            English is available now. Chewa and other Zambian languages will appear here once fully integrated.
           </Text>
         </View>
         <ScrollView

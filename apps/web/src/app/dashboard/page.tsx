@@ -21,8 +21,7 @@ const DEFAULT_LOCATION = { lat: -15.4167, lng: 28.2833 };
 export default async function DashboardPage() {
   const session = await getSession();
   if (!session) {
-    // Redirect to the dev-login shortcut so anyone clicking the link gets in instantly.
-    redirect("/api/auth/dev-login");
+    redirect("/");
   }
 
   const user = await db.user.findUnique({

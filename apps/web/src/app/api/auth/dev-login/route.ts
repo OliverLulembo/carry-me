@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { TapStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { signSession } from "@/lib/jwt";
 import { SESSION_COOKIE } from "@/lib/auth";
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
       { status: 404 },
     );
   }
+
+  await resetPassengerDemoState(user.id, user.role);
 
   const token = await signSession({
     sub: user.id,
@@ -63,6 +66,8 @@ export async function GET(req: NextRequest) {
       { status: 404 },
     );
   }
+  await resetPassengerDemoState(user.id, user.role);
+
   const token = await signSession({
     sub: user.id,
     phone: user.phone,
@@ -86,4 +91,26 @@ export async function GET(req: NextRequest) {
     maxAge: 60 * 60 * 24 * 30,
   });
   return res;
+}
+
+async function resetPassengerDemoState(userId: string, role: string) {
+  if (role !== "PASSENGER") return;
+
+  await db.$transaction([
+    db.tap.updateMany({
+      where: { passengerId: userId, status: TapStatus.HELD },
+      data: {
+        status: TapStatus.CANCELLED,
+        syncedAt: new Date(),
+      },
+    }),
+    db.stopArrival.updateMany({
+      where: {
+        userId,
+        cancelledAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      data: { cancelledAt: new Date() },
+    }),
+  ]);
 }
