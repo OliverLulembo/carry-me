@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "CarryMe",
+    "slug": "carryme-mobile",
+    "scheme": "carryme",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "backgroundColor": "#000000",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.carryme.mobile",
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "CarryMe uses your location to find the nearest bus stops and show inbound buses."
+      }
+    },
+    "android": {
+      "package": "com.carryme.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "CarryMe uses your location to find the nearest bus stops and show inbound buses."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    }
+  }
+}

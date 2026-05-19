@@ -1,0 +1,328 @@
+// CarryMe — Prisma schema (v0.1)
+// Local dev: SQLite. To move to Postgres: change provider to "postgresql" and the DATABASE_URL.
+// We deliberately use String IDs (cuid) instead of native UUID so the schema is portable
+// between SQLite and Postgres without changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Identity
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+  OWNER
+  ADMIN
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  fullName    String
+  role        UserRole @default(PASSENGER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  suspendedAt DateTime?
+
+  wallet           Wallet?
+  devices          Device[]
+  arrivals         StopArrival[]
+  taps             Tap[]            @relation("PassengerTaps")
+  trips            Trip[]           @relation("DriverTrips")
+  ownedBuses       Bus[]            @relation("BusOwner")
+  withdrawals      Withdrawal[]
+  outgoingShares   CreditShare[]    @relation("ShareSender")
+  incomingShares   CreditShare[]    @relation("ShareRecipient")
+}
+
+// One signed credential. v1 = 1 device per user (passenger), but the relation
+// is one-to-many so attach-devices (v1.1) drops in without a migration headache.
+enum DeviceType {
+  PHONE       // Android HCE
+  CARD        // NFC card
+  WRISTBAND   // NFC wristband
+  DRIVER_PAD  // Bus-mounted reader / driver phone
+}
+
+model Device {
+  id           String     @id @default(cuid())
+  user         User?      @relation(fields: [userId], references: [id])
+  userId       String?
+  type         DeviceType
+  serial       String     @unique  // NFC UID or app-install id
+  label        String?              // user-friendly name
+  active       Boolean    @default(true)
+  lastSeenAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  bus          Bus?       @relation(fields: [busId], references: [id])
+  busId        String?              // populated when this is a DRIVER_PAD assigned to a bus
+}
+
+// -----------------------------------------------------------------------------
+// Wallet & money
+// -----------------------------------------------------------------------------
+// Credits are integer (1 credit = 1 ZMW in v1). Always go through WalletEntry for
+// auditability. Balance is derived; we cache it on Wallet for fast reads.
+
+model Wallet {
+  id            String         @id @default(cuid())
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String         @unique
+  balance       Int            @default(0)   // cached; truth = SUM(entries.amount)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  entries       WalletEntry[]
+}
+
+enum WalletEntryKind {
+  TOPUP            // credits added via mobile money / card
+  TRIP_DEBIT       // credits spent on a trip (final settled amount)
+  TRIP_HOLD        // provisional reservation at tap-on (reversed on tap-off settle)
+  TRIP_RELEASE     // reversal of a hold
+  SHARE_OUT        // credits sent to another passenger
+  SHARE_IN         // credits received from another passenger
+  REFUND           // admin refund
+  ADJUSTMENT       // admin adjustment (with reason)
+  WITHDRAWAL_OUT   // owner converting credits to cash (debit on owner wallet)
+}
+
+model WalletEntry {
+  id          String           @id @default(cuid())
+  wallet      Wallet           @relation(fields: [walletId], references: [id])
+  walletId    String
+  amount      Int              // signed: positive = credit in, negative = credit out
+  kind        WalletEntryKind
+  balanceAfter Int             // snapshot for fast statements
+  reference   String?          // free-form reference (e.g. payment id, trip id)
+  note        String?
+  createdAt   DateTime         @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// Network: stops, routes, fares
+// -----------------------------------------------------------------------------
+
+model BusStop {
+  id          String         @id @default(cuid())
+  name        String
+  // Coordinates as floats — fine for SQLite; will move to PostGIS if/when we migrate.
+  lat         Float
+  lng         Float
+  createdAt   DateTime       @default(now())
+
+  routeStops  RouteStop[]
+  arrivals    StopArrival[]
+  fareFrom    FareSegment[]  @relation("FareStart")
+  fareTo      FareSegment[]  @relation("FareEnd")
+  tapsOn      Tap[]          @relation("TapOnStop")
+  tapsOff     Tap[]          @relation("TapOffStop")
+}
+
+model Route {
+  id          String         @id @default(cuid())
+  name        String         // e.g. "Kabwata ↔ Town"
+  description String?
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+
+  stops       RouteStop[]
+  fares       FareSegment[]
+  buses       Bus[]
+  trips       Trip[]
+}
+
+// Ordered list of stops on a route. `order` ascending = forward direction.
+model RouteStop {
+  id          String   @id @default(cuid())
+  route       Route    @relation(fields: [routeId], references: [id])
+  routeId     String
+  stop        BusStop  @relation(fields: [stopId], references: [id])
+  stopId      String
+  order       Int
+
+  @@unique([routeId, stopId])
+  @@index([routeId, order])
+}
+
+// Admin-configured fare per stretch (start stop → end stop) on a route.
+// One row per direction (forward / reverse) by convention.
+model FareSegment {
+  id          String   @id @default(cuid())
+  route       Route    @relation(fields: [routeId], references: [id])
+  routeId     String
+  startStop   BusStop  @relation("FareStart", fields: [startStopId], references: [id])
+  startStopId String
+  endStop     BusStop  @relation("FareEnd", fields: [endStopId], references: [id])
+  endStopId   String
+  credits     Int      // fare in credits for this stretch
+
+  @@unique([routeId, startStopId, endStopId])
+  @@index([routeId])
+}
+
+// -----------------------------------------------------------------------------
+// Fleet & operations
+// -----------------------------------------------------------------------------
+
+model Bus {
+  id           String   @id @default(cuid())
+  plate        String   @unique
+  capacity     Int      // seats
+  owner        User     @relation("BusOwner", fields: [ownerId], references: [id])
+  ownerId      String
+  defaultRoute Route?   @relation(fields: [defaultRouteId], references: [id])
+  defaultRouteId String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  trips        Trip[]
+  devices      Device[]
+}
+
+enum TripStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TripDirection {
+  FORWARD
+  REVERSE
+}
+
+model Trip {
+  id          String        @id @default(cuid())
+  bus         Bus           @relation(fields: [busId], references: [id])
+  busId       String
+  driver      User          @relation("DriverTrips", fields: [driverId], references: [id])
+  driverId    String
+  route       Route         @relation(fields: [routeId], references: [id])
+  routeId     String
+  direction   TripDirection @default(FORWARD)
+  status      TripStatus    @default(ACTIVE)
+  startedAt   DateTime      @default(now())
+  endedAt     DateTime?
+  lastLat     Float?
+  lastLng     Float?
+  lastSeenAt  DateTime?
+
+  taps        Tap[]
+
+  @@index([routeId, status])
+  @@index([busId, status])
+}
+
+enum TapStatus {
+  HELD        // tap-on: balance reserved
+  SETTLED     // tap-off processed (or default end-of-route on no tap-off)
+  CANCELLED   // driver rejected
+  FLAGGED     // reconciliation anomaly
+}
+
+// One row per passenger boarding event. groupSize lets one tap cover a small group.
+model Tap {
+  id           String     @id @default(cuid())
+  trip         Trip       @relation(fields: [tripId], references: [id])
+  tripId       String
+  passenger    User       @relation("PassengerTaps", fields: [passengerId], references: [id])
+  passengerId  String
+  onStop       BusStop    @relation("TapOnStop", fields: [onStopId], references: [id])
+  onStopId     String
+  offStop      BusStop?   @relation("TapOffStop", fields: [offStopId], references: [id])
+  offStopId    String?
+  groupSize    Int        @default(1)
+  reservedCredits Int                  // total held at tap-on (groupSize × stretch)
+  finalCredits Int?                   // total settled at tap-off / default-end
+  status       TapStatus  @default(HELD)
+  tappedOnAt   DateTime   @default(now())
+  tappedOffAt  DateTime?
+  offline      Boolean    @default(false)  // captured offline, settled on sync
+  syncedAt     DateTime?
+
+  @@index([tripId, status])
+  @@index([passengerId, tappedOnAt])
+}
+
+// Passenger logs "I'm here" at a stop (P-7). Auto-expires after 30 minutes.
+model StopArrival {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  stop         BusStop  @relation(fields: [stopId], references: [id])
+  stopId       String
+  destinationStopId String?
+  loggedAt     DateTime @default(now())
+  expiresAt    DateTime
+  cancelledAt  DateTime?
+
+  @@index([stopId, expiresAt])
+  @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// Sharing & owner withdrawals
+// -----------------------------------------------------------------------------
+
+enum ShareStatus {
+  COMPLETED
+  PENDING_SIGNUP   // recipient phone not yet a CarryMe user
+  REFUNDED         // expired or rejected
+}
+
+model CreditShare {
+  id           String      @id @default(cuid())
+  sender       User        @relation("ShareSender", fields: [senderId], references: [id])
+  senderId     String
+  recipient    User?       @relation("ShareRecipient", fields: [recipientId], references: [id])
+  recipientId  String?
+  recipientPhone String                // captured even if recipient doesn't exist yet
+  amount       Int
+  status       ShareStatus @default(COMPLETED)
+  note         String?
+  createdAt    DateTime    @default(now())
+  resolvedAt   DateTime?
+
+  @@index([senderId])
+  @@index([recipientPhone])
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum WithdrawalMethod {
+  BANK
+  MTN_MOMO
+  AIRTEL_MONEY
+  ZAMTEL_KWACHA
+}
+
+model Withdrawal {
+  id           String           @id @default(cuid())
+  owner        User             @relation(fields: [ownerId], references: [id])
+  ownerId      String
+  amount       Int
+  method       WithdrawalMethod
+  destination  String           // bank account number or mobile number, last-4 retained
+  status       WithdrawalStatus @default(REQUESTED)
+  requestedAt  DateTime         @default(now())
+  paidAt       DateTime?
+  feeCredits   Int              @default(0)
+  reference    String?
+
+  @@index([ownerId, status])
+}

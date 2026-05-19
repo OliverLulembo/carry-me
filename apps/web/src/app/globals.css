@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CarryMe design tokens — sourced from .cursor/reference/Brand guidelines.md
+   60/30/10 = primary / secondary / accents. Surfaces stay neutral so the brand
+   primary carries its dominant share without overwhelming. */
+:root {
+  --brand-primary: #F34213;
+  --brand-secondary: #BEB7A4;
+  --brand-accent-light: #FFFFFC;
+  --brand-deep: #000000;
+
+  --surface: #FFFFFF;
+  --surface-subtle: #FAF8F3;
+
+  --ink-900: #1A1814;
+  --ink-700: #3D372E;
+  --ink-500: #6E665C;
+  --ink-300: #A8A095;
+  --ink-100: #E6E2DA;
+}
+
+html,
+body {
+  background: var(--surface-subtle);
+  color: var(--ink-900);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle ambient brand glow used in the dashboard background. Stays well under
+   the 10% accent allocation by capping each radial at ~10% alpha. */
+.bg-app {
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(243, 66, 19, 0.10) 0%, rgba(243, 66, 19, 0) 60%),
+    radial-gradient(80% 50% at 100% 0%, rgba(190, 183, 164, 0.18) 0%, rgba(190, 183, 164, 0) 60%),
+    var(--surface-subtle);
+}
+
+/* Reusable card */
+.card {
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* Focus rings — primary orange for high visibility */
+*:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scroll bar polish */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.30); }
+
+/* Branded Leaflet markers used by LiveTripMap. Origin = pulsing orange dot
+   ("you are here"), destination = solid dark pin. The keyframes echo the
+   "WAITING AT STOP" pulse in the hero so the two feel like the same beat. */
+.carryme-marker__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--brand-primary);
+  opacity: 0.35;
+  animation: carryme-marker-pulse 1.6s ease-out infinite;
+}
+.carryme-marker__dot {
+  position: absolute;
+  inset: 7px;
+  border-radius: 9999px;
+  background: var(--brand-primary);
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.carryme-marker__pin {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--brand-deep);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+/* Intermediate stops on the minibus route (between origin and destination). */
+.carryme-marker__via {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid var(--brand-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+@keyframes carryme-marker-pulse {
+  0%   { transform: scale(0.6); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0;    }
+}

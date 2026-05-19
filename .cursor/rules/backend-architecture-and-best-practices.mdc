@@ -1,0 +1,13 @@
+---
+globs: portfoli-backend/*
+alwaysApply: false
+---
+
+This rule provides standards fot the API 
+
+- Business logic with database interactions (entity framework) should be in services which will then be injected into controllers
+- Services should be implemented using have interfaces (for Dependency injection) 
+- Use dependency injection for loose coupling
+- use SOLID Principles
+- set up propper logging
+- API responses should return only the data that is in use on the front end
