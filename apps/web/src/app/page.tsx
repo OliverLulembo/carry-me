@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
 const ONBOARDING_KEY = "carrymeWebOnboardingSeen";
 const LANGUAGE_KEY = "carrymeWebLanguage";
@@ -122,24 +121,24 @@ export default function Home() {
           Pre-load credits, find your bus, and skip the cash on Lusaka public transport.
         </p>
         <div className="mt-8 flex flex-col gap-3">
-          <Link
+          <a
             href="/api/auth/dev-login"
             className="rounded-xl bg-white px-5 py-4 font-bold text-brand-primary"
           >
             Open passenger dashboard
-          </Link>
-          <Link
+          </a>
+          <a
             href="/api/auth/dev-login?phone=%2B260977000002"
             className="rounded-xl border border-white/40 px-5 py-3 font-semibold text-white"
           >
             Driver dashboard
-          </Link>
-          <Link
+          </a>
+          <a
             href="/api/auth/dev-login?phone=%2B260977000004"
             className="rounded-xl border border-white/40 px-5 py-3 font-semibold text-white"
           >
             Admin console
-          </Link>
+          </a>
         </div>
       </div>
     </main>
