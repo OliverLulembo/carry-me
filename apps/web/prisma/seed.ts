@@ -271,6 +271,44 @@ async function main() {
     await db.wallet.update({ where: { id: wallet.id }, data: { balance: seedAmount } });
   }
 
+  // ── Past trips (trip history page) ───────────────────────────────────────
+  const historyNow = Date.now();
+  const pastTripSpecs = [
+    { daysAgo: 2, on: 0, off: 3, credits: 12 },
+    { daysAgo: 5, on: 2, off: 5, credits: 12 },
+    { daysAgo: 9, on: 1, off: 4, credits: 12 },
+  ];
+  for (const spec of pastTripSpecs) {
+    const startedAt = new Date(historyNow - spec.daysAgo * 24 * 60 * 60 * 1000);
+    const endedAt = new Date(startedAt.getTime() + 45 * 60 * 1000);
+    const tappedOnAt = new Date(startedAt.getTime() + 5 * 60 * 1000);
+    const tappedOffAt = new Date(startedAt.getTime() + 35 * 60 * 1000);
+    const pastTrip = await db.trip.create({
+      data: {
+        busId: bus.id,
+        driverId: driver.id,
+        routeId: route.id,
+        status: TripStatus.COMPLETED,
+        startedAt,
+        endedAt,
+      },
+    });
+    await db.tap.create({
+      data: {
+        tripId: pastTrip.id,
+        passengerId: passenger.id,
+        onStopId: stops[spec.on].id,
+        offStopId: stops[spec.off].id,
+        groupSize: 1,
+        reservedCredits: spec.credits,
+        finalCredits: spec.credits,
+        status: "SETTLED",
+        tappedOnAt,
+        tappedOffAt,
+      },
+    });
+  }
+
   console.log("✓ Seed complete.");
   console.log(`  Demo admin: ${admin.fullName} (${admin.phone})`);
   console.log(`  Demo passenger: ${passenger.fullName} (${passenger.phone})`);

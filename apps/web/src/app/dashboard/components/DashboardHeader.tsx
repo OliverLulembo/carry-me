@@ -2,10 +2,14 @@ import { Bell, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
 
+type NavKey = "dashboard" | "trips" | "wallet" | "support";
+
 export function DashboardHeader({
   user,
+  activeNav = "dashboard",
 }: {
   user: { fullName: string; phone: string };
+  activeNav?: NavKey;
 }) {
   const initials = user.fullName
     .split(" ")
@@ -29,8 +33,18 @@ export function DashboardHeader({
         </Link>
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-ink-500">
-          <a className="text-brand-deep" href="/dashboard">Dashboard</a>
-          <a className="hover:text-brand-deep transition" href="#">Trips</a>
+          <Link
+            href="/dashboard"
+            className={activeNav === "dashboard" ? "text-brand-deep" : "hover:text-brand-deep transition"}
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/trips"
+            className={activeNav === "trips" ? "text-brand-deep" : "hover:text-brand-deep transition"}
+          >
+            Trips
+          </Link>
           <a className="hover:text-brand-deep transition" href="#">Wallet</a>
           <a className="hover:text-brand-deep transition" href="#">Support</a>
         </nav>
