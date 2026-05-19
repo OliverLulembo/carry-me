@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, View, Text, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors, fontSize, radii, spacing, tints } from "@/theme/tokens";
 import type { InboundBus } from "@/api/client";
@@ -111,6 +112,7 @@ export function InboundBuses({
 }
 
 function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
+  const blink = useRef(new Animated.Value(1)).current;
   const fillPct = Math.max(
     0,
     Math.min(100, ((bus.capacity - bus.seatsAvailable) / bus.capacity) * 100),
@@ -121,6 +123,30 @@ function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
       : fillPct < 80
         ? colors.status.warn
         : colors.status.danger;
+  const shouldBlink = tone === colors.status.success;
+
+  useEffect(() => {
+    if (!shouldBlink) {
+      blink.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(blink, {
+          toValue: 0.35,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.timing(blink, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [blink, shouldBlink]);
 
   return (
     <View style={[styles.row, embedded && styles.rowEmbedded]}>
@@ -175,10 +201,15 @@ function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
             embedded && { backgroundColor: "rgba(255,255,255,0.18)" },
           ]}
         >
-          <View
+          <Animated.View
             style={[
               styles.barFill,
-              { width: `${fillPct}%`, backgroundColor: tone },
+              {
+                width: `${fillPct}%`,
+                minWidth: shouldBlink ? 28 : 0,
+                backgroundColor: tone,
+                opacity: shouldBlink ? blink : 1,
+              },
             ]}
           />
         </View>

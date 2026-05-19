@@ -77,20 +77,17 @@ export const fontSize = {
 
 export const shadow = {
   card: {
-    shadowColor: "#1A1814",
-    shadowOpacity: 0.10,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
-  // Brand-tinted shadow used on primary CTAs and the balance card. Mirrors the
-  // web `shadow-pop` utility: a warm orange halo that lifts the surface
-  // without competing with the orange primary.
   pop: {
-    shadowColor: "#F34213",
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
 } as const;

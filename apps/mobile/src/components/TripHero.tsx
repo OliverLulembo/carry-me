@@ -96,9 +96,11 @@ export function TripHero({
       </View>
 
       <Text style={styles.heading}>Where are you headed?</Text>
-      <Text style={styles.sub}>
-        Pick your destination and we&apos;ll show you the right bus to catch.
-      </Text>
+      {destination && (
+        <Text style={styles.sub}>
+          Tell us where you are now and we&apos;ll show you the right bus to catch.
+        </Text>
+      )}
 
       <View style={{ marginTop: spacing.md }}>
         <DestinationAutocomplete
@@ -109,14 +111,13 @@ export function TripHero({
         />
       </View>
 
-      <View style={{ opacity: destination ? 1 : 0.6, marginTop: spacing.lg }}>
-        <Text style={styles.pickLabel}>
-          {destination ? "WHERE ARE YOU NOW?" : "THEN TELL US WHERE YOU ARE"}
-        </Text>
+      {destination && (
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.pickLabel}>WHERE ARE YOU NOW?</Text>
         <View style={styles.stops}>
           {nearestStops.map((s) => {
             const active = s.id === arrivalStopId;
-            const disabled = !destination || s.id === destination.id;
+            const disabled = s.id === destination.id;
             return (
               <Pressable
                 key={s.id}
@@ -152,7 +153,8 @@ export function TripHero({
             );
           })}
         </View>
-      </View>
+        </View>
+      )}
 
       {error && (
         <View style={styles.error}>
@@ -182,9 +184,11 @@ export function TripHero({
         block
         style={{ marginTop: spacing.lg }}
       />
-      <Text style={styles.footnote}>
-        Logs your arrival for 30 min. Drivers on inbound routes will see you.
-      </Text>
+      {destination && (
+        <Text style={styles.footnote}>
+          Logs your arrival for 30 min. Drivers on inbound routes will see you.
+        </Text>
+      )}
     </View>
   );
 }
