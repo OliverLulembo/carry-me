@@ -11,6 +11,22 @@ const SPLASHES = [
   "/onboarding/splash-3.jpg",
 ];
 
+const LANGUAGES = [
+  { code: "en", name: "English", status: "Available now", available: true },
+  { code: "bem", name: "Bemba", status: "Unavailable", available: false },
+  { code: "nya", name: "Nyanja", status: "Unavailable", available: false },
+  { code: "loz", name: "Lozi", status: "Unavailable", available: false },
+  { code: "toi", name: "Tonga", status: "Unavailable", available: false },
+  { code: "lun", name: "Lunda", status: "Unavailable", available: false },
+  { code: "lue", name: "Luvale", status: "Unavailable", available: false },
+  { code: "kao", name: "Kaonde", status: "Unavailable", available: false },
+  { code: "fr", name: "French", status: "Unavailable", available: false },
+  { code: "pt", name: "Portuguese", status: "Unavailable", available: false },
+  { code: "es", name: "Spanish", status: "Unavailable", available: false },
+  { code: "zh", name: "Mandarin", status: "Unavailable", available: false },
+  { code: "ar", name: "Arabic", status: "Unavailable", available: false },
+];
+
 export default function Home() {
   const [ready, setReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -85,21 +101,31 @@ export default function Home() {
           />
           <h1 className="mt-6 text-3xl font-bold text-white">Choose your language</h1>
           <p className="mt-3 text-sm leading-6 text-white">
-            English is available now. Chewa and other Zambian languages will appear here once fully integrated.
+            English is available now. Other Zambian and world languages are listed but unavailable until fully integrated.
           </p>
-          <button
-            type="button"
-            onClick={chooseEnglish}
-            className="mt-8 flex w-full items-center justify-between rounded-xl bg-white px-4 py-4 text-left"
-          >
-            <span>
-              <span className="block font-bold text-brand-deep">English</span>
-              <span className="mt-0.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                Available now
-              </span>
-            </span>
-            <span className="text-xl font-bold text-brand-primary">→</span>
-          </button>
+          <div className="mt-8 max-h-[48vh] space-y-2 overflow-y-auto pr-1 text-left">
+            {LANGUAGES.map((language) => (
+              <button
+                key={language.code}
+                type="button"
+                onClick={language.available ? chooseEnglish : undefined}
+                disabled={!language.available}
+                className={`flex w-full items-center justify-between rounded-xl bg-white px-4 py-4 text-left ${
+                  language.available ? "" : "cursor-not-allowed opacity-60"
+                }`}
+              >
+                <span>
+                  <span className="block font-bold text-brand-deep">{language.name}</span>
+                  <span className="mt-0.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    {language.status}
+                  </span>
+                </span>
+                <span className="text-sm font-bold text-brand-primary">
+                  {language.available ? "->" : "Locked"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </main>
     );

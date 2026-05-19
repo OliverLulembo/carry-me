@@ -28,7 +28,19 @@ const ONBOARDING = [
 const VERTICAL_LOGO = require("../assets/Vertical Carry Me logo white text.png");
 
 const LANGUAGES = [
-  { code: "en", name: "English", region: "Available now" },
+  { code: "en", name: "English", region: "Available now", available: true },
+  { code: "bem", name: "Bemba", region: "Unavailable", available: false },
+  { code: "nya", name: "Nyanja", region: "Unavailable", available: false },
+  { code: "loz", name: "Lozi", region: "Unavailable", available: false },
+  { code: "toi", name: "Tonga", region: "Unavailable", available: false },
+  { code: "lun", name: "Lunda", region: "Unavailable", available: false },
+  { code: "lue", name: "Luvale", region: "Unavailable", available: false },
+  { code: "kao", name: "Kaonde", region: "Unavailable", available: false },
+  { code: "fr", name: "French", region: "Unavailable", available: false },
+  { code: "pt", name: "Portuguese", region: "Unavailable", available: false },
+  { code: "es", name: "Spanish", region: "Unavailable", available: false },
+  { code: "zh", name: "Mandarin", region: "Unavailable", available: false },
+  { code: "ar", name: "Arabic", region: "Unavailable", available: false },
 ];
 
 export default function Index() {
@@ -138,7 +150,7 @@ export default function Index() {
         <View style={styles.languageIntro}>
           <Text style={styles.languageTitle}>Choose your language</Text>
           <Text style={styles.languageSub}>
-            English is available now. Chewa and other Zambian languages will appear here once fully integrated.
+            English is available now. Other Zambian and world languages are listed but unavailable until fully integrated.
           </Text>
         </View>
         <ScrollView
@@ -149,17 +161,23 @@ export default function Index() {
           {LANGUAGES.map((language) => (
             <Pressable
               key={language.code}
-              onPress={() => chooseLanguage(language.code)}
+              onPress={() => language.available && chooseLanguage(language.code)}
+              disabled={!language.available}
               style={({ pressed }) => [
                 styles.languageOption,
-                pressed && { opacity: 0.86 },
+                !language.available && styles.languageOptionDisabled,
+                pressed && language.available && { opacity: 0.86 },
               ]}
             >
               <View>
                 <Text style={styles.languageName}>{language.name}</Text>
                 <Text style={styles.languageRegion}>{language.region}</Text>
               </View>
-              <Feather name="chevron-right" size={18} color={colors.brand.primary} />
+              <Feather
+                name={language.available ? "chevron-right" : "lock"}
+                size={18}
+                color={language.available ? colors.brand.primary : colors.ink[300]}
+              />
             </Pressable>
           ))}
         </ScrollView>
@@ -379,6 +397,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
+  },
+  languageOptionDisabled: {
+    opacity: 0.58,
   },
   languageName: {
     color: colors.brand.deep,
