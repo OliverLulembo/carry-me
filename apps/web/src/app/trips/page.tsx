@@ -11,13 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function TripsPage() {
   const session = await getSession();
-  if (!session) redirect("/api/auth/dev-login");
+  if (!session) redirect("/login/passenger?redirect=%2Ftrips");
 
   const user = await db.user.findUnique({
     where: { id: session.sub },
     select: { fullName: true, phone: true, role: true },
   });
-  if (!user) redirect("/api/auth/dev-login");
+  if (!user) redirect("/login/passenger?redirect=%2Ftrips");
   if (user.role === "DRIVER") redirect("/driver/dashboard");
   if (user.role === "ADMIN") redirect("/admin");
 

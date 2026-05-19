@@ -5,18 +5,26 @@ import {
   WalletEntryKind,
   DeviceType,
 } from "@prisma/client";
+import { hashPassword } from "../src/lib/password";
 
 const db = new PrismaClient();
+const DEMO_PASSWORD = "carryme123";
 
 async function main() {
   console.log("Seeding CarryMe demo data...");
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   // ── Users ────────────────────────────────────────────────────────────────
   const passenger = await db.user.upsert({
     where: { phone: "+260977000001" },
-    update: {},
+    update: {
+      email: "passenger@carryme.dev",
+      passwordHash,
+    },
     create: {
       phone: "+260977000001",
+      email: "passenger@carryme.dev",
+      passwordHash,
       fullName: "Chanda Mwila",
       role: UserRole.PASSENGER,
       wallet: { create: { balance: 0 } },
@@ -24,32 +32,50 @@ async function main() {
     include: { wallet: true },
   });
 
-  const driver = await db.user.upsert({
-    where: { phone: "+260977000002" },
-    update: {},
-    create: {
-      phone: "+260977000002",
-      fullName: "Mwila Phiri",
-      role: UserRole.DRIVER,
-    },
-  });
-
   const owner = await db.user.upsert({
     where: { phone: "+260977000003" },
-    update: {},
+    update: {
+      email: "owner@carryme.dev",
+      passwordHash,
+    },
     create: {
       phone: "+260977000003",
+      email: "owner@carryme.dev",
+      passwordHash,
       fullName: "Mr. Banda",
       role: UserRole.OWNER,
       wallet: { create: { balance: 0 } },
     },
   });
 
+  const driver = await db.user.upsert({
+    where: { phone: "+260977000002" },
+    update: {
+      email: "driver@carryme.dev",
+      passwordHash,
+      invitedByOwnerId: owner.id,
+    },
+    create: {
+      phone: "+260977000002",
+      email: "driver@carryme.dev",
+      passwordHash,
+      fullName: "Mwila Phiri",
+      role: UserRole.DRIVER,
+      invitedByOwnerId: owner.id,
+    },
+  });
+
   const admin = await db.user.upsert({
     where: { phone: "+260977000004" },
-    update: { role: UserRole.ADMIN },
+    update: {
+      role: UserRole.ADMIN,
+      email: "admin@carryme.dev",
+      passwordHash,
+    },
     create: {
       phone: "+260977000004",
+      email: "admin@carryme.dev",
+      passwordHash,
       fullName: "CarryMe Ops",
       role: UserRole.ADMIN,
     },
@@ -309,9 +335,43 @@ async function main() {
     });
   }
 
+  // ── Backfill owner earnings from settled taps (demo wallet balance) ─────
+  const ownerWallet = await db.wallet.findUnique({ where: { userId: owner.id } });
+  if (ownerWallet) {
+    const settledOnFleet = await db.tap.aggregate({
+      where: {
+        status: "SETTLED",
+        finalCredits: { not: null },
+        trip: { bus: { ownerId: owner.id } },
+      },
+      _sum: { finalCredits: true },
+    });
+    const earned = settledOnFleet._sum.finalCredits ?? 0;
+    if (earned > 0 && ownerWallet.balance < earned) {
+      const delta = earned - ownerWallet.balance;
+      await db.walletEntry.create({
+        data: {
+          walletId: ownerWallet.id,
+          amount: delta,
+          kind: WalletEntryKind.TRIP_EARNINGS,
+          balanceAfter: earned,
+          reference: "seed-owner-earnings",
+          note: "Seed backfill from settled passenger trips",
+        },
+      });
+      await db.wallet.update({
+        where: { id: ownerWallet.id },
+        data: { balance: earned },
+      });
+    }
+  }
+
   console.log("✓ Seed complete.");
-  console.log(`  Demo admin: ${admin.fullName} (${admin.phone})`);
-  console.log(`  Demo passenger: ${passenger.fullName} (${passenger.phone})`);
+  console.log(`  Demo login password for all seeded users: ${DEMO_PASSWORD}`);
+  console.log(`  Demo passenger: ${passenger.email} (${passenger.phone})`);
+  console.log(`  Demo driver: ${driver.email} (${driver.phone})`);
+  console.log(`  Demo owner: ${owner.email} (${owner.phone})`);
+  console.log(`  Demo admin: ${admin.email} (${admin.phone})`);
   console.log(`  Wallet balance: ${seedAmount} credits`);
   console.log(`  Route: ${route.name} with ${stops.length} stops`);
   console.log(`  Demo driver: ${driver.fullName} (${driver.phone})`);

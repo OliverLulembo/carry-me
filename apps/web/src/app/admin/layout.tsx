@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAdminPage();
   if (!session) {
-    redirect("/api/auth/dev-login?phone=%2B260977000004&redirect=%2Fadmin");
+    redirect("/login/admin?redirect=%2Fadmin");
   }
 
   const admin = await db.user.findUnique({

@@ -315,27 +315,20 @@ export function TripHero({
           />
         </div>
 
-        {/* WHERE YOU ARE — only meaningful once a destination is picked */}
-        <div
-          className={`mt-6 transition-opacity ${
-            destination ? "opacity-100" : "opacity-60"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-ink-500 font-medium uppercase tracking-wider">
-              {destination ? "Where are you now?" : "Then tell us where you are"}
-            </p>
-            {destination && (
-              <p className="text-xs text-ink-500">
-                Nearest stops to your location
-              </p>
-            )}
-          </div>
+        {destination && (
+          <>
+            <div className="mt-6">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-ink-500 font-medium uppercase tracking-wider">
+                  Where are you now?
+                </p>
+                <p className="text-xs text-ink-500">Nearest stops to your location</p>
+              </div>
 
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
             {nearestStops.map((s) => {
               const active = s.id === arrivalStopId;
-              const disabled = !destination || s.id === destination.id;
+              const disabled = s.id === destination.id;
               return (
                 <button
                   key={s.id}
@@ -348,11 +341,7 @@ export function TripHero({
                         ? "border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20"
                         : "border-ink-100 hover:border-brand-primary/30 hover:bg-surface-subtle"
                   }`}
-                  title={
-                    destination && s.id === destination.id
-                      ? "This is your destination"
-                      : undefined
-                  }
+                  title={s.id === destination.id ? "This is your destination" : undefined}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-brand-deep">
@@ -371,29 +360,29 @@ export function TripHero({
                 </button>
               );
             })}
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {error && (
-          <p className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg">
-            {error}
-          </p>
+            {error && (
+              <p className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg">
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={logArrival}
+              disabled={busy || !arrivalStopId}
+              className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {busy && <Loader2 className="w-4 h-4 animate-spin" size={16} />}
+              {`I'm here — find my bus to ${destination.name}`}
+              <ArrowRight className="w-4 h-4" size={16} />
+            </button>
+            <p className="mt-2 text-xs text-ink-500">
+              Logs your arrival for 30 min. Drivers on inbound routes will see you.
+            </p>
+          </>
         )}
-
-        <button
-          onClick={logArrival}
-          disabled={busy || !arrivalStopId || !destination}
-          className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {busy && <Loader2 className="w-4 h-4 animate-spin" size={16} />}
-          {destination
-            ? `I'm here — find my bus to ${destination.name}`
-            : "Pick a destination to continue"}
-          {destination && <ArrowRight className="w-4 h-4" size={16} />}
-        </button>
-        <p className="mt-2 text-xs text-ink-500">
-          Logs your arrival for 30 min. Drivers on inbound routes will see you.
-        </p>
       </div>
     </div>
   );

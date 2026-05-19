@@ -446,7 +446,7 @@ function MomoTab({
       <label className="text-xs font-medium text-ink-500">
         Mobile money provider
       </label>
-      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-2 grid grid-cols-2 gap-2">
         {PROVIDERS.map((p) => {
           const active = provider === p.id;
           return (
@@ -454,27 +454,23 @@ function MomoTab({
               key={p.id}
               type="button"
               onClick={() => setProvider(p.id)}
-              className={`relative flex flex-col items-center justify-center gap-1.5 px-2 py-3 rounded-xl border-2 transition ${
+              aria-label={p.label}
+              aria-pressed={active}
+              className={`relative flex items-center justify-center min-h-[122px] px-1.5 py-2.5 rounded-xl border-2 transition ${
                 active
                   ? "border-brand-primary bg-brand-primary/5"
                   : "border-ink-100 hover:border-brand-primary/30 bg-surface"
               }`}
             >
-              <span className="w-16 h-12 grid place-items-center overflow-hidden">
+              <span className="flex h-24 w-full max-w-[140px] items-center justify-center overflow-hidden">
                 <img
                   src={p.logo}
-                  alt=""
-                  className="max-h-12 max-w-16 object-contain"
-                  aria-hidden="true"
+                  alt={p.label}
+                  className="h-[88px] w-[140px] max-h-full max-w-full object-contain"
                 />
               </span>
-              <span
-                className={`text-[11px] font-semibold ${active ? "text-brand-primary" : "text-brand-deep"}`}
-              >
-                {p.label}
-              </span>
               {active && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-brand-primary grid place-items-center">
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-brand-primary grid place-items-center">
                   <Check className="w-2.5 h-2.5 text-white" size={10} strokeWidth={3} />
                 </span>
               )}

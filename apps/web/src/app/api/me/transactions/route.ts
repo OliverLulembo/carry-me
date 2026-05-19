@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 10)));
+  const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 10)));
 
   const wallet = await db.wallet.findUnique({
     where: { userId: session.sub },

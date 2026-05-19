@@ -49,8 +49,9 @@ type Props = {
   onCancelArrival: () => void;
 };
 
-// Mirrors apps/web TripHero. The pre-arrival view is destination-first: pick a
-// destination via a typeahead, *then* confirm which nearby stop you're at.
+// Mirrors apps/web TripHero. The pre-arrival view is destination-first: only the
+// destination typeahead shows until a stop is picked; then nearby stops, CTA,
+// and footnote appear.
 // Once arrival is logged the hero switches to a dark "WAITING AT STOP" mode
 // that embeds the inbound-buses list inline so passengers don't leave the
 // hero to see what's coming.
@@ -109,82 +110,76 @@ export function TripHero({
         />
       </View>
 
-      <View style={{ opacity: destination ? 1 : 0.6, marginTop: spacing.lg }}>
-        <Text style={styles.pickLabel}>
-          {destination ? "WHERE ARE YOU NOW?" : "THEN TELL US WHERE YOU ARE"}
-        </Text>
-        <View style={styles.stops}>
-          {nearestStops.map((s) => {
-            const active = s.id === arrivalStopId;
-            const disabled = !destination || s.id === destination.id;
-            return (
-              <Pressable
-                key={s.id}
-                onPress={() => {
-                  if (disabled) return;
-                  Haptics.selectionAsync().catch(() => {});
-                  setArrivalStopId(s.id);
-                }}
-                disabled={disabled}
-                style={({ pressed }) => [
-                  styles.stop,
-                  active && !disabled && styles.stopActive,
-                  pressed && !active && !disabled && styles.stopPressed,
-                  disabled && styles.stopDisabled,
-                ]}
-              >
-                <View style={styles.stopRow}>
-                  <Text style={styles.stopName} numberOfLines={1}>
-                    {s.name}
-                  </Text>
-                  {active && !disabled && (
-                    <Feather
-                      name="check-circle"
-                      size={16}
-                      color={colors.brand.primary}
-                    />
-                  )}
-                </View>
-                <Text style={styles.stopMeta}>
-                  {s.walkingMinutes} min walk · {Math.round(s.distanceMeters)} m
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
+      {destination && (
+        <>
+          <View style={{ marginTop: spacing.lg }}>
+            <Text style={styles.pickLabel}>WHERE ARE YOU NOW?</Text>
+            <View style={styles.stops}>
+              {nearestStops.map((s) => {
+                const active = s.id === arrivalStopId;
+                const disabled = s.id === destination.id;
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => {
+                      if (disabled) return;
+                      Haptics.selectionAsync().catch(() => {});
+                      setArrivalStopId(s.id);
+                    }}
+                    disabled={disabled}
+                    style={({ pressed }) => [
+                      styles.stop,
+                      active && !disabled && styles.stopActive,
+                      pressed && !active && !disabled && styles.stopPressed,
+                      disabled && styles.stopDisabled,
+                    ]}
+                  >
+                    <View style={styles.stopRow}>
+                      <Text style={styles.stopName} numberOfLines={1}>
+                        {s.name}
+                      </Text>
+                      {active && !disabled && (
+                        <Feather
+                          name="check-circle"
+                          size={16}
+                          color={colors.brand.primary}
+                        />
+                      )}
+                    </View>
+                    <Text style={styles.stopMeta}>
+                      {s.walkingMinutes} min walk · {Math.round(s.distanceMeters)} m
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
-      {error && (
-        <View style={styles.error}>
-          <Feather name="alert-triangle" size={14} color={colors.status.danger} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+          {error && (
+            <View style={styles.error}>
+              <Feather name="alert-triangle" size={14} color={colors.status.danger} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          <Button
+            label={`I'm here — find my bus to ${destination.name}`}
+            loading={busy}
+            disabled={!arrivalStopId}
+            rightIcon={
+              <Feather name="arrow-right" size={16} color={colors.white} />
+            }
+            onPress={() =>
+              arrivalStopId && onLogArrival(arrivalStopId, destination.id)
+            }
+            block
+            style={{ marginTop: spacing.lg }}
+          />
+          <Text style={styles.footnote}>
+            Logs your arrival for 30 min. Drivers on inbound routes will see you.
+          </Text>
+        </>
       )}
-
-      <Button
-        label={
-          destination
-            ? `I'm here — find my bus to ${destination.name}`
-            : "Pick a destination to continue"
-        }
-        loading={busy}
-        disabled={!arrivalStopId || !destination}
-        rightIcon={
-          destination ? (
-            <Feather name="arrow-right" size={16} color={colors.white} />
-          ) : undefined
-        }
-        onPress={() =>
-          arrivalStopId &&
-          destination &&
-          onLogArrival(arrivalStopId, destination.id)
-        }
-        block
-        style={{ marginTop: spacing.lg }}
-      />
-      <Text style={styles.footnote}>
-        Logs your arrival for 30 min. Drivers on inbound routes will see you.
-      </Text>
     </View>
   );
 }

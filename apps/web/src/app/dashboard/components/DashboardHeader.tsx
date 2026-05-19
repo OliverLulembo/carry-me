@@ -45,7 +45,12 @@ export function DashboardHeader({
           >
             Trips
           </Link>
-          <a className="hover:text-brand-deep transition" href="#">Wallet</a>
+          <Link
+            href="/wallet"
+            className={activeNav === "wallet" ? "text-brand-deep" : "hover:text-brand-deep transition"}
+          >
+            Wallet
+          </Link>
           <a className="hover:text-brand-deep transition" href="#">Support</a>
         </nav>
 

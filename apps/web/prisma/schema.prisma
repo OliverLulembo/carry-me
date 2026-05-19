@@ -24,13 +24,20 @@ enum UserRole {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  phone       String   @unique
-  fullName    String
-  role        UserRole @default(PASSENGER)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  suspendedAt DateTime?
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String?
+  fullName     String
+  role         UserRole @default(PASSENGER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  suspendedAt  DateTime?
+
+  // Drivers invited by a bus owner receive credentials by email.
+  invitedByOwnerId String?
+  invitedByOwner   User?  @relation("InvitedDrivers", fields: [invitedByOwnerId], references: [id])
+  invitedDrivers   User[] @relation("InvitedDrivers")
 
   wallet           Wallet?
   devices          Device[]
@@ -92,6 +99,7 @@ enum WalletEntryKind {
   SHARE_IN         // credits received from another passenger
   REFUND           // admin refund
   ADJUSTMENT       // admin adjustment (with reason)
+  TRIP_EARNINGS    // owner credited when a passenger trip settles on their bus
   WITHDRAWAL_OUT   // owner converting credits to cash (debit on owner wallet)
 }
 

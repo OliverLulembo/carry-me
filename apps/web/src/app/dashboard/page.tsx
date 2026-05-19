@@ -21,8 +21,7 @@ const DEFAULT_LOCATION = { lat: -15.4167, lng: 28.2833 };
 export default async function DashboardPage() {
   const session = await getSession();
   if (!session) {
-    // Redirect to the dev-login shortcut so anyone clicking the link gets in instantly.
-    redirect("/api/auth/dev-login");
+    redirect("/login/passenger?redirect=%2Fdashboard");
   }
 
   const user = await db.user.findUnique({
@@ -35,10 +34,11 @@ export default async function DashboardPage() {
       },
     },
   });
-  if (!user) redirect("/api/auth/dev-login");
+  if (!user) redirect("/login/passenger?redirect=%2Fdashboard");
   if (user.role === "DRIVER") redirect("/driver/dashboard");
+  if (user.role === "OWNER") redirect("/owner/dashboard");
   if (user.role === "ADMIN") redirect("/admin");
-  if (!user.wallet) redirect("/api/auth/dev-login");
+  if (!user.wallet) redirect("/login/passenger?redirect=%2Fdashboard");
 
   const linkedDevices: LinkedDevice[] = user.devices.map((d) => ({
     id: d.id,
@@ -200,6 +200,7 @@ export default async function DashboardPage() {
                 amount: e.amount,
                 kind: e.kind,
                 note: e.note,
+                reference: e.reference,
                 createdAt: e.createdAt.toISOString(),
                 balanceAfter: e.balanceAfter,
               }))}

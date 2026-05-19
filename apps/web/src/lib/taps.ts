@@ -132,7 +132,14 @@ export async function tapOff(params: {
         },
         include: {
           onStop: { select: { id: true, name: true } },
-          trip: { select: { id: true, routeId: true, status: true } },
+          trip: {
+            select: {
+              id: true,
+              routeId: true,
+              status: true,
+              bus: { select: { ownerId: true } },
+            },
+          },
         },
       })
     : await db.tap.findFirst({
@@ -142,7 +149,14 @@ export async function tapOff(params: {
         },
         include: {
           onStop: { select: { id: true, name: true } },
-          trip: { select: { id: true, routeId: true, status: true } },
+          trip: {
+            select: {
+              id: true,
+              routeId: true,
+              status: true,
+              bus: { select: { ownerId: true } },
+            },
+          },
         },
         orderBy: { tappedOnAt: "desc" },
       });
@@ -204,6 +218,8 @@ export async function tapOff(params: {
     throw new TapError("Stop not found", "STOP_NOT_FOUND", 404);
   }
 
+  const ownerId = tap.trip.bus.ownerId;
+
   const updated = await db.$transaction(async (tx) => {
     const newBalance = wallet.balance - finalCredits;
     await tx.walletEntry.create({
@@ -220,6 +236,26 @@ export async function tapOff(params: {
       where: { id: wallet.id },
       data: { balance: newBalance },
     });
+
+    const ownerWallet = await tx.wallet.findUnique({ where: { userId: ownerId } });
+    if (ownerWallet) {
+      const ownerBalance = ownerWallet.balance + finalCredits;
+      await tx.walletEntry.create({
+        data: {
+          walletId: ownerWallet.id,
+          amount: finalCredits,
+          kind: WalletEntryKind.TRIP_EARNINGS,
+          balanceAfter: ownerBalance,
+          reference: tap.id,
+          note: `Fare ${tap.onStop.name} → ${offStop.name}`,
+        },
+      });
+      await tx.wallet.update({
+        where: { id: ownerWallet.id },
+        data: { balance: ownerBalance },
+      });
+    }
+
     return tx.tap.update({
       where: { id: tap.id },
       data: {

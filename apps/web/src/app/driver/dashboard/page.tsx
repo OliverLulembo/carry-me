@@ -15,17 +15,18 @@ export const dynamic = "force-dynamic";
 export default async function DriverDashboardPage() {
   const session = await getSession();
   if (!session) {
-    redirect("/api/auth/dev-login?phone=%2B260977000002");
+    redirect("/login/driver?redirect=%2Fdriver%2Fdashboard");
   }
 
   const user = await db.user.findUnique({
     where: { id: session.sub },
     select: { id: true, fullName: true, phone: true, role: true },
   });
-  if (!user) redirect("/api/auth/dev-login?phone=%2B260977000002");
+  if (!user) redirect("/login/driver?redirect=%2Fdriver%2Fdashboard");
   if (user.role === "PASSENGER") redirect("/dashboard");
+  if (user.role === "OWNER") redirect("/owner/dashboard");
   if (user.role === "ADMIN") redirect("/admin");
-  if (user.role !== "DRIVER") redirect("/api/auth/dev-login?phone=%2B260977000002");
+  if (user.role !== "DRIVER") redirect("/login/driver?redirect=%2Fdriver%2Fdashboard");
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);

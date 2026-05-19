@@ -73,7 +73,9 @@ export async function GET(req: NextRequest) {
       ? "/admin"
       : user.role === "DRIVER"
         ? "/driver/dashboard"
-        : "/dashboard";
+        : user.role === "OWNER"
+          ? "/owner/dashboard"
+          : "/dashboard";
   const redirectParam = req.nextUrl.searchParams.get("redirect");
   const path = redirectParam?.startsWith("/") ? redirectParam : defaultPath;
   const url = new URL(path, req.url);
