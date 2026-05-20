@@ -182,6 +182,25 @@ async function main() {
     },
   });
 
+
+  // Passengers waiting at upcoming stops (driver dashboard preview)
+  const arrivalExpiry = new Date(Date.now() + 30 * 60 * 1000);
+  for (const stop of [stops[2], stops[3]]) {
+    await db.stopArrival.create({
+      data: {
+        userId: passenger.id,
+        stopId: stop.id,
+        destinationStopId: stops[5].id,
+        expiresAt: arrivalExpiry,
+      },
+    });
+  }
+
+  // Clear old demo taps so the passenger dashboard starts at the normal
+  // planning step. Payments are now made when boarding, so we do not seed an
+  // active passenger ride by default.
+  await db.tap.deleteMany({ where: { passengerId: passenger.id } });
+
   // ── Linked devices for the demo passenger ────────────────────────────────
   // v1 ships single-device; we seed a few here so the dashboard's "Linked
   // devices" section is visually meaningful for the v1.1 multi-device preview.

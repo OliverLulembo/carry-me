@@ -74,6 +74,7 @@ export function TripHero({
     activeTap,
     loading: rideLoading,
     busy: rideBusy,
+    error: rideError,
     destinationStopId,
     setModal,
     inboundBuses: liveInboundBuses,
@@ -175,8 +176,8 @@ export function TripHero({
   if (activeTap) {
     const isDestinationNext =
       !!activeTap.nextStop &&
-      !!destinationStopId &&
-      activeTap.nextStop.id === destinationStopId;
+      !!(destinationStopId ?? activeTap.offStop?.id) &&
+      activeTap.nextStop.id === (destinationStopId ?? activeTap.offStop?.id);
     const canTapOff = !!activeTap.currentStop;
 
     return (
@@ -305,6 +306,12 @@ export function TripHero({
             />
           </div>
 
+          {rideError && (
+            <p className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg">
+              {rideError}
+            </p>
+          )}
+
           <button
             onClick={async () => {
               setBusy(true);
@@ -343,19 +350,19 @@ export function TripHero({
   // branch above. Showing the map before that would be premature, since the
   // trip isn't really "selected" until they've committed to a stop.
   return (
-    <div className="card relative overflow-hidden p-6 sm:p-8 h-full">
-      <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-brand-primary/20 blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-2xl p-6 sm:p-8 h-full bg-brand-primary text-white shadow-pop">
+      <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/15 blur-3xl pointer-events-none" />
 
       <div className="relative">
-        <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand-primary uppercase tracking-wider">
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-white/80 uppercase tracking-wider">
           <Navigation className="w-3.5 h-3.5" size={14} />
           Plan your ride
         </span>
 
-        <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-brand-deep leading-tight">
+        <h2 className="mt-3 text-2xl sm:text-3xl font-bold text-white leading-tight">
           Where are you headed?
         </h2>
-        <p className="mt-2 text-ink-500 text-sm max-w-md">
+        <p className="mt-2 text-white/80 text-sm max-w-md">
           Pick your destination and we&apos;ll show you the right bus to catch.
         </p>
 
@@ -369,20 +376,24 @@ export function TripHero({
           />
         </div>
 
-        {destination && (
-          <>
-            <div className="mt-6">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-ink-500 font-medium uppercase tracking-wider">
-                  Where are you now?
-                </p>
-                <p className="text-xs text-ink-500">Nearest stops to your location</p>
-              </div>
+        <div
+          className={`mt-6 transition-opacity ${
+            destination ? "opacity-100" : "opacity-60"
+          }`}
+        >
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-white/80 font-medium uppercase tracking-wider">
+              {destination ? "Where are you now?" : "Then tell us where you are"}
+            </p>
+            {destination && (
+              <p className="text-xs text-white/70">Nearest stops to your location</p>
+            )}
+          </div>
 
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
             {nearestStops.map((s) => {
               const active = s.id === arrivalStopId;
-              const disabled = s.id === destination.id;
+              const disabled = !destination || s.id === destination.id;
               return (
                 <button
                   key={s.id}
@@ -390,12 +401,12 @@ export function TripHero({
                   disabled={disabled}
                   className={`text-left px-4 py-3 rounded-xl border transition ${
                     disabled
-                      ? "border-ink-100 bg-surface-subtle cursor-not-allowed opacity-50"
+                      ? "border-white/20 bg-white/10 cursor-not-allowed opacity-50"
                       : active
-                        ? "border-brand-primary bg-brand-primary/5 ring-2 ring-brand-primary/20"
-                        : "border-ink-100 hover:border-brand-primary/30 hover:bg-surface-subtle"
+                        ? "border-white bg-white ring-2 ring-white/30"
+                        : "border-white/30 bg-white/90 hover:bg-white"
                   }`}
-                  title={s.id === destination.id ? "This is your destination" : undefined}
+                  title={destination && s.id === destination.id ? "This is your destination" : undefined}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-brand-deep">
@@ -414,29 +425,29 @@ export function TripHero({
                 </button>
               );
             })}
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {error && (
-              <p className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg">
-                {error}
-              </p>
-            )}
-
-            <button
-              onClick={logArrival}
-              disabled={busy || !arrivalStopId}
-              className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {busy && <Loader2 className="w-4 h-4 animate-spin" size={16} />}
-              {`I'm here — find my bus to ${destination.name}`}
-              <ArrowRight className="w-4 h-4" size={16} />
-            </button>
-            <p className="mt-2 text-xs text-ink-500">
-              Logs your arrival for 30 min. Drivers on inbound routes will see you.
-            </p>
-          </>
+        {error && (
+          <p className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2 rounded-lg">
+            {error}
+          </p>
         )}
+
+        <button
+          onClick={logArrival}
+          disabled={busy || !arrivalStopId || !destination}
+          className="mt-5 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white text-brand-primary font-semibold hover:bg-brand-accent transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {busy && <Loader2 className="w-4 h-4 animate-spin" size={16} />}
+          {destination
+            ? `I'm here — find my bus to ${destination.name}`
+            : "Pick a destination to continue"}
+          {destination && <ArrowRight className="w-4 h-4" size={16} />}
+        </button>
+        <p className="mt-2 text-xs text-white/70">
+          Logs your arrival for 30 min. Drivers on inbound routes will see you.
+        </p>
       </div>
     </div>
   );

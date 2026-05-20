@@ -28,6 +28,8 @@ export type ActiveTap = {
   tappedOnAt: string;
   onStop: { id: string; name: string };
   offStop: { id: string; name: string } | null;
+  distanceToDestinationMeters: number | null;
+  etaToDestinationMinutes: number | null;
   busPlate: string;
   currentStop: { id: string; name: string } | null;
   nextStop: { id: string; name: string } | null;
@@ -252,7 +254,12 @@ export function RideProvider({
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tripId, stopId: boardingStopId, groupSize }),
+          body: JSON.stringify({
+            tripId,
+            stopId: boardingStopId,
+            destinationStopId,
+            groupSize,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Could not board");
@@ -265,7 +272,7 @@ export function RideProvider({
         setBusy(false);
       }
     },
-    [boardingStopId, groupSize, refreshActive, router],
+    [boardingStopId, destinationStopId, groupSize, refreshActive, router],
   );
 
   const tapOff = useCallback(
@@ -280,13 +287,13 @@ export function RideProvider({
           body: JSON.stringify({ stopId, tapId: activeTap?.id }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Could not complete tap off");
+        if (!res.ok) throw new Error(data.error ?? "Could not update ride");
         setModal(null);
         setActiveTap(null);
         setFareHints([]);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not complete tap off");
+        setError(e instanceof Error ? e.message : "Could not update ride");
       } finally {
         setBusy(false);
       }

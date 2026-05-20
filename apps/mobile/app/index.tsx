@@ -1,43 +1,209 @@
-import { useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { Redirect } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
 import { useAuth } from "@/auth/session";
-import { colors, fontSize, radii, shadow, spacing } from "@/theme/tokens";
+import { colors, fontSize, radii, spacing } from "@/theme/tokens";
 import { Button } from "@/components/Button";
-import { BrandLogo } from "@/components/BrandLogo";
 import { API_BASE_URL } from "@/api/client";
 
+const ONBOARDING_KEY = "carrymeOnboardingSeen";
+const LANGUAGE_KEY = "carrymeLanguage";
+
+const ONBOARDING = [
+  require("../assets/Splash Screens/Splash Screen1.jpg"),
+  require("../assets/Splash Screens/Splash Screen2.jpg"),
+  require("../assets/Splash Screens/Splash Screen3.jpg"),
+];
+
+const VERTICAL_LOGO = require("../assets/Vertical all white logo.png");
+
+const LANGUAGES = [
+  { code: "en", name: "English", region: "Available now", available: true },
+  { code: "bem", name: "Bemba", region: "Unavailable", available: false },
+  { code: "nya", name: "Nyanja", region: "Unavailable", available: false },
+  { code: "loz", name: "Lozi", region: "Unavailable", available: false },
+  { code: "toi", name: "Tonga", region: "Unavailable", available: false },
+  { code: "lun", name: "Lunda", region: "Unavailable", available: false },
+  { code: "lue", name: "Luvale", region: "Unavailable", available: false },
+  { code: "kao", name: "Kaonde", region: "Unavailable", available: false },
+  { code: "fr", name: "French", region: "Unavailable", available: false },
+  { code: "pt", name: "Portuguese", region: "Unavailable", available: false },
+  { code: "es", name: "Spanish", region: "Unavailable", available: false },
+  { code: "zh", name: "Mandarin", region: "Unavailable", available: false },
+  { code: "ar", name: "Arabic", region: "Unavailable", available: false },
+];
+
 export default function Index() {
-  const { status, signInDev, error } = useAuth();
+  const { status, signInDev, signOut, user, error } = useAuth();
+  const [checkingSetup, setCheckingSetup] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [slide, setSlide] = useState(0);
 
-  // Auto-attempt dev sign-in the moment auth resolves to signed-out — matches
-  // the web app's one-click "Open passenger dashboard (dev)" flow.
   useEffect(() => {
-    if (status === "signedOut" && !error) {
-      signInDev().catch(() => {});
-    }
-  }, [status, error, signInDev]);
+    let cancelled = false;
+    Promise.all([
+      SecureStore.getItemAsync(ONBOARDING_KEY),
+      SecureStore.getItemAsync(LANGUAGE_KEY),
+    ])
+      .then(([seenOnboarding, language]) => {
+        if (cancelled) return;
+        setShowOnboarding(seenOnboarding !== "1");
+        setShowLanguagePicker(!language);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setShowOnboarding(true);
+        setShowLanguagePicker(true);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingSetup(false);
+      });
 
-  if (status === "signedIn") {
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function advanceOnboarding() {
+    if (slide < ONBOARDING.length - 1) {
+      setSlide((current) => current + 1);
+      return;
+    }
+
+    await SecureStore.setItemAsync(ONBOARDING_KEY, "1");
+    setShowOnboarding(false);
+  }
+
+  async function chooseLanguage(code: string) {
+    await SecureStore.setItemAsync(LANGUAGE_KEY, code);
+    setShowLanguagePicker(false);
+  }
+
+  if (
+    status === "signedIn" &&
+    user?.role !== "PASSENGER" &&
+    !checkingSetup &&
+    !showOnboarding &&
+    !showLanguagePicker
+  ) {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.center}>
+          <Image source={VERTICAL_LOGO} resizeMode="contain" style={styles.loginLogo} />
+          <Text style={styles.tagline}>Logged in as {user?.role.toLowerCase()}</Text>
+          <Text style={styles.desc}>
+            Driver and admin consoles are available on the web preview.
+          </Text>
+          <Button
+            label="Back to login"
+            variant="onPrimary"
+            onPress={() => signOut()}
+            block
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (status === "signedIn" && !checkingSetup && !showOnboarding && !showLanguagePicker) {
     return <Redirect href="/(tabs)" />;
   }
 
-  return (
-    <LinearGradient
-      colors={[colors.brand.primary, "#B7320D"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.wrap}
-    >
-      <View style={styles.orb} />
-      <View style={styles.orb2} />
+  if (checkingSetup || showOnboarding) {
+    return (
+      <View style={styles.onboarding}>
+        <View style={styles.splashFrame}>
+          <Image
+            source={ONBOARDING[slide]}
+            resizeMode="contain"
+            style={styles.splashImage}
+          />
+        </View>
+        <View
+          style={styles.dots}
+          accessibilityLabel={`Splash screen ${slide + 1} of ${ONBOARDING.length}`}
+        >
+          {ONBOARDING.map((_, index) => (
+            <View
+              key={index}
+              style={[styles.dot, index === slide && styles.dotActive]}
+            />
+          ))}
+        </View>
+        <Pressable
+          onPress={advanceOnboarding}
+          style={({ pressed }) => [
+            styles.nextButton,
+            pressed && { opacity: 0.86 },
+          ]}
+        >
+          <Text style={styles.nextButtonText}>
+            {slide === ONBOARDING.length - 1 ? "Get started" : "Next"}
+          </Text>
+          <Feather name="arrow-right" size={18} color={colors.white} />
+        </Pressable>
+      </View>
+    );
+  }
 
+  if (showLanguagePicker) {
+    return (
+      <View style={styles.languageScreen}>
+        <Image source={VERTICAL_LOGO} resizeMode="contain" style={styles.languageLogo} />
+        <View style={styles.languageIntro}>
+          <Text style={styles.languageTitle}>Choose your language</Text>
+          <Text style={styles.languageSub}>
+            English is available now. Other Zambian and world languages are listed but unavailable until fully integrated.
+          </Text>
+        </View>
+        <ScrollView
+          style={styles.languageList}
+          contentContainerStyle={styles.languageListContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {LANGUAGES.map((language) => (
+            <Pressable
+              key={language.code}
+              onPress={() => language.available && chooseLanguage(language.code)}
+              disabled={!language.available}
+              style={({ pressed }) => [
+                styles.languageOption,
+                !language.available && styles.languageOptionDisabled,
+                pressed && language.available && { opacity: 0.86 },
+              ]}
+            >
+              <View>
+                <Text style={styles.languageName}>{language.name}</Text>
+                <Text style={styles.languageRegion}>{language.region}</Text>
+              </View>
+              <Feather
+                name={language.available ? "chevron-right" : "lock"}
+                size={18}
+                color={language.available ? colors.brand.primary : colors.ink[300]}
+              />
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.wrap}>
       <View style={styles.center}>
-        {/* Forced "dark" variant: the white-text artwork is what reads
-           correctly on the orange gradient regardless of the OS theme. */}
-        <BrandLogo variant="dark" height={56} style={styles.logo} />
+        <Image source={VERTICAL_LOGO} resizeMode="contain" style={styles.loginLogo} />
         <Text style={styles.tagline}>Tap. Ride. Done.</Text>
         <Text style={styles.desc}>
           Pre-load credits, find your bus, and skip the cash on Lusaka public
@@ -47,7 +213,7 @@ export default function Index() {
         {status === "loading" && (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={colors.white} />
-            <Text style={styles.loadingText}>Signing you in…</Text>
+            <Text style={styles.loadingText}>Signing you in...</Text>
           </View>
         )}
 
@@ -55,21 +221,42 @@ export default function Index() {
           <>
             {error && (
               <View style={styles.errorBox}>
-                <Feather name="alert-triangle" size={14} color={colors.white} />
+                <Feather name="alert-triangle" size={14} color={colors.status.danger} />
                 <Text style={styles.errorText} numberOfLines={3}>
                   {error}
                 </Text>
               </View>
             )}
             <Button
-              label="Open passenger dashboard (dev)"
+              label="Log in as Passenger"
               variant="onPrimary"
               onPress={() => signInDev()}
               rightIcon={
-                <Feather name="arrow-right" size={16} color={colors.brand.deep} />
+                <Feather name="arrow-right" size={16} color={colors.brand.primary} />
               }
               block
               style={{ marginTop: spacing.lg }}
+            />
+            <Button
+              label="Log in as Driver"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev("+260977000002")}
+              block
+              style={{ marginTop: spacing.md }}
+            />
+            <Button
+              label="Log in as Admin"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev("+260977000004")}
+              block
+              style={{ marginTop: spacing.sm }}
+            />
+            <Button
+              label="Sign up"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev()}
+              block
+              style={{ marginTop: spacing.sm }}
             />
             <Text style={styles.help}>
               Make sure the API is reachable at{"\n"}
@@ -78,7 +265,7 @@ export default function Index() {
           </>
         )}
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -87,24 +274,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xxl,
-  },
-  orb: {
-    position: "absolute",
-    top: -100,
-    right: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
-  },
-  orb2: {
-    position: "absolute",
-    bottom: -100,
-    left: -80,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: "rgba(190, 183, 164, 0.28)",
+    backgroundColor: colors.brand.primary,
   },
   center: {
     flex: 1,
@@ -112,18 +282,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
-  logo: {
+  loginLogo: {
+    width: 190,
+    height: 190,
     marginBottom: spacing.lg,
   },
   tagline: {
     color: colors.white,
     fontWeight: "700",
     fontSize: fontSize.md,
-    letterSpacing: 0.4,
   },
   desc: {
     marginTop: spacing.md,
-    color: "rgba(255, 255, 255, 0.84)",
+    color: colors.white,
     fontSize: fontSize.sm,
     textAlign: "center",
     maxWidth: 320,
@@ -146,7 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
+    backgroundColor: "rgba(255,255,255,0.14)",
     borderRadius: radii.md,
   },
   errorText: {
@@ -156,7 +327,7 @@ const styles = StyleSheet.create({
   },
   help: {
     marginTop: spacing.lg,
-    color: "rgba(255, 255, 255, 0.72)",
+    color: colors.white,
     fontSize: fontSize.xs,
     textAlign: "center",
     lineHeight: 18,
@@ -164,5 +335,119 @@ const styles = StyleSheet.create({
   helpAccent: {
     color: colors.white,
     fontWeight: "700",
+  },
+  onboarding: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl + spacing.lg,
+    paddingBottom: spacing.xxl,
+    backgroundColor: colors.brand.primary,
+  },
+  splashFrame: {
+    width: "100%",
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: spacing.lg,
+  },
+  splashImage: {
+    width: "100%",
+    height: "100%",
+  },
+  dots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: spacing.lg,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.ink[100],
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: colors.brand.primary,
+  },
+  nextButton: {
+    width: "100%",
+    minHeight: 54,
+    borderRadius: radii.md,
+    backgroundColor: colors.brand.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  nextButtonText: {
+    color: colors.white,
+    fontSize: fontSize.md,
+    fontWeight: "800",
+  },
+  languageScreen: {
+    flex: 1,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl + spacing.md,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.brand.primary,
+  },
+  languageLogo: {
+    alignSelf: "center",
+    width: 132,
+    height: 132,
+  },
+  languageIntro: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  languageTitle: {
+    color: colors.white,
+    fontSize: fontSize.xxl,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  languageSub: {
+    marginTop: spacing.sm,
+    color: colors.white,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  languageList: {
+    flex: 1,
+  },
+  languageListContent: {
+    gap: 10,
+    paddingBottom: spacing.lg,
+  },
+  languageOption: {
+    minHeight: 58,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: colors.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  languageOptionDisabled: {
+    opacity: 0.58,
+  },
+  languageName: {
+    color: colors.brand.deep,
+    fontSize: fontSize.md,
+    fontWeight: "800",
+  },
+  languageRegion: {
+    marginTop: 2,
+    color: colors.ink[500],
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
 });

@@ -126,6 +126,8 @@ export type ActiveTap = {
   tappedOnAt: string;
   onStop: { id: string; name: string };
   offStop: { id: string; name: string } | null;
+  distanceToDestinationMeters: number | null;
+  etaToDestinationMinutes: number | null;
   busPlate: string;
   route: {
     id: string;
@@ -149,7 +151,12 @@ export function getActiveTap(token: string) {
 
 export function tapOn(
   token: string,
-  body: { tripId: string; stopId: string; groupSize?: number },
+  body: {
+    tripId: string;
+    stopId: string;
+    destinationStopId?: string | null;
+    groupSize?: number;
+  },
 ) {
   return api<{
     tap: {
@@ -157,6 +164,8 @@ export function tapOn(
       onStop: { id: string; name: string };
       busPlate: string;
     };
+    fare: { totalCredits: number } | null;
+    balance: number | null;
     message: string;
   }>("/api/taps/on", { method: "POST", token, body });
 }

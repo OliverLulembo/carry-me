@@ -41,18 +41,10 @@ export function QuickActions({
 
   const actions: Action[] = [
     {
-      icon: hasActiveRide ? "log-out" : "wifi",
-      label: hasActiveRide ? "Tap off" : "Tap to board",
-      sub: hasActiveRide ? "Pay fare at destination" : "Board via API",
-      tone: "primary",
-      onPress: openTap,
-      disabled: !hasActiveRide && !boardingStopId,
-    },
-    {
       icon: "users",
       label: "Boarding as a group",
-      sub: "Set size when boarding",
-      tone: "secondary",
+      sub: "Set size before Pay now",
+      tone: "primary",
       onPress: openTap,
       disabled: hasActiveRide,
     },

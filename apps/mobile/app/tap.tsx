@@ -31,12 +31,20 @@ export default function TapScreen() {
   const params = useLocalSearchParams<{
     stopId?: string;
     stopName?: string;
+    destinationStopId?: string;
+    tripId?: string;
     mode?: string;
   }>();
 
   const stopId = typeof params.stopId === "string" ? params.stopId : "";
   const stopName =
     typeof params.stopName === "string" ? params.stopName : "Your stop";
+  const destinationStopId =
+    typeof params.destinationStopId === "string" && params.destinationStopId
+      ? params.destinationStopId
+      : null;
+  const highlightedTripId =
+    typeof params.tripId === "string" && params.tripId ? params.tripId : null;
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -45,6 +53,7 @@ export default function TapScreen() {
   const [fareHints, setFareHints] = useState<FareHint[]>([]);
   const [buses, setBuses] = useState<InboundBus[]>([]);
   const [groupSize, setGroupSize] = useState(1);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(highlightedTripId);
   const [success, setSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -75,12 +84,17 @@ export default function TapScreen() {
     setBusy(true);
     setError(null);
     try {
-      const res = await tapOn(token, { tripId, stopId, groupSize });
+      const res = await tapOn(token, {
+        tripId,
+        stopId,
+        destinationStopId,
+        groupSize,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},
       );
       setSuccess(res.message);
-      await load();
+      setTimeout(() => router.back(), 1200);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Boarding failed");
     } finally {
@@ -100,7 +114,7 @@ export default function TapScreen() {
       setSuccess(res.message);
       setTimeout(() => router.back(), 1200);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Tap off failed");
+      setError(e instanceof ApiError ? e.message : "Could not update ride");
     } finally {
       setBusy(false);
     }
@@ -115,7 +129,7 @@ export default function TapScreen() {
           <Feather name="x" size={22} color={colors.brand.deep} />
         </Pressable>
         <Text style={styles.title}>
-          {activeTap ? "Tap off" : "Tap to board"}
+          {activeTap ? "Ride active" : "Pay now"}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -146,10 +160,10 @@ export default function TapScreen() {
             <>
               <Text style={styles.lead}>
                 On board · {activeTap.busPlate}. Boarded at {activeTap.onStop.name}.
-                Choose where you&apos;re getting off — fare is charged now.
+                This is an older active ride. New trips are paid when you board.
               </Text>
-              {activeTap.route.stops
-                .filter((s) => s.id !== activeTap.onStop.id)
+              {false && activeTap && activeTap!.route.stops
+                .filter((s) => s.id !== activeTap!.onStop.id)
                 .map((s) => {
                   const hint = hintFor(s.id);
                   return (
@@ -168,8 +182,8 @@ export default function TapScreen() {
                         {hint ? (
                           <Text style={styles.rowFare}>
                             {hint.totalCredits} credits
-                            {activeTap.groupSize > 1
-                              ? ` (${hint.creditsPerPassenger} × ${activeTap.groupSize})`
+                            {activeTap!.groupSize > 1
+                              ? ` (${hint.creditsPerPassenger} × ${activeTap!.groupSize})`
                               : ""}
                           </Text>
                         ) : (
@@ -185,7 +199,7 @@ export default function TapScreen() {
             <>
               <Text style={styles.lead}>
                 Boarding at <Text style={styles.leadBold}>{stopName}</Text>. Pick a
-                bus — you won&apos;t be charged until you tap off.
+                bus and pay now to board.
               </Text>
 
               <Text style={styles.sectionLabel}>Group size</Text>
@@ -219,8 +233,18 @@ export default function TapScreen() {
                   <Pressable
                     key={b.tripId}
                     disabled={busy}
-                    onPress={() => onBoard(b.tripId)}
-                    style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+                    onPress={() => {
+                      if (selectedTripId === b.tripId) {
+                        onBoard(b.tripId);
+                        return;
+                      }
+                      setSelectedTripId(b.tripId);
+                    }}
+                    style={({ pressed }) => [
+                      styles.row,
+                      selectedTripId === b.tripId && styles.rowHighlighted,
+                      pressed && styles.rowPressed,
+                    ]}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.rowTitle}>{b.busPlate}</Text>
@@ -230,7 +254,21 @@ export default function TapScreen() {
                         {b.etaMinutes != null ? ` · ~${b.etaMinutes} min` : ""}
                       </Text>
                     </View>
-                    <Feather name="wifi" size={18} color={colors.brand.primary} />
+                    <View
+                      style={[
+                        styles.payPill,
+                        selectedTripId !== b.tripId && styles.pickPill,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.payPillText,
+                          selectedTripId !== b.tripId && styles.pickPillText,
+                        ]}
+                      >
+                        {selectedTripId === b.tripId ? "Pay now" : "Pick bus"}
+                      </Text>
+                    </View>
                   </Pressable>
                 ))
               )}
@@ -319,6 +357,10 @@ const styles = StyleSheet.create({
   },
   rowPressed: { opacity: 0.85 },
   rowDisabled: { opacity: 0.5 },
+  rowHighlighted: {
+    borderColor: colors.brand.primary,
+    backgroundColor: tints.primarySoft,
+  },
   rowTitle: { fontWeight: "700", color: colors.brand.deep, fontSize: fontSize.sm },
   rowFare: {
     color: colors.brand.primary,
@@ -342,4 +384,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   bannerErrText: { color: "#B91C1C", fontSize: fontSize.sm },
+  payPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.md,
+    backgroundColor: colors.brand.primary,
+  },
+  pickPill: {
+    backgroundColor: colors.surface.raised,
+    borderWidth: 1,
+    borderColor: colors.brand.primary,
+  },
+  payPillText: {
+    color: colors.white,
+    fontWeight: "800",
+    fontSize: fontSize.xs,
+  },
+  pickPillText: {
+    color: colors.brand.primary,
+  },
 });

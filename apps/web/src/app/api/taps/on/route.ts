@@ -6,6 +6,7 @@ import { TapError, tapOn } from "@/lib/taps";
 const BodySchema = z.object({
   tripId: z.string().min(1),
   stopId: z.string().min(1),
+  destinationStopId: z.string().min(1).optional().nullable(),
   groupSize: z.number().int().min(1).max(10).optional(),
 });
 
@@ -23,12 +24,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { tap } = await tapOn({
+    const result = await tapOn({
       passengerId: session.sub,
       tripId: parsed.data.tripId,
       stopId: parsed.data.stopId,
+      destinationStopId: parsed.data.destinationStopId,
       groupSize: parsed.data.groupSize,
     });
+    const { tap } = result;
+    const settledFare = "fare" in result ? result.fare : null;
+    const balance = "balance" in result ? result.balance : null;
 
     return NextResponse.json({
       tap: {
@@ -41,7 +46,12 @@ export async function POST(req: NextRequest) {
         busPlate: tap.trip.bus.plate,
         route: tap.trip.route,
       },
-      message: "Boarded. Fare is charged when you tap off.",
+      fare: settledFare,
+      balance,
+      message:
+        settledFare
+          ? `Paid ${settledFare.totalCredits} credits. You are ready to board.`
+          : "Boarded.",
     });
   } catch (e) {
     if (e instanceof TapError) {

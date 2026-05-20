@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ScrollView,
   RefreshControl,
@@ -6,8 +6,10 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Header } from "@/components/Header";
 import { BalanceCard } from "@/components/BalanceCard";
@@ -21,7 +23,21 @@ import { colors, fontSize, spacing, tints } from "@/theme/tokens";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const dashboard = useDashboard();
+  const refreshRef = useRef(dashboard.refresh);
+  const [showNearestStops, setShowNearestStops] = useState(false);
+  const [showRecentActivity, setShowRecentActivity] = useState(false);
+
+  useEffect(() => {
+    refreshRef.current = dashboard.refresh;
+  }, [dashboard.refresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRef.current();
+    }, []),
+  );
 
   const handleLogArrival = useCallback(
     (stopId: string, destinationStopId?: string) => {
@@ -37,6 +53,22 @@ export default function HomeScreen() {
     Haptics.selectionAsync().catch(() => {});
     dashboard.onCancelArrival();
   }, [dashboard]);
+
+  const handlePayNow = useCallback(
+    (tripId: string) => {
+      if (!dashboard.liveArrival) return;
+      router.push({
+        pathname: "/tap" as const,
+        params: {
+          stopId: dashboard.liveArrival.stopId,
+          stopName: dashboard.liveArrival.stopName,
+          destinationStopId: dashboard.liveArrival.destinationStopId ?? "",
+          tripId,
+        },
+      } as never);
+    },
+    [dashboard.liveArrival, router],
+  );
 
   // Map the rich Stop list down to the lighter "option" shape the destination
   // autocomplete needs. Memoised so the combobox doesn't re-render on every
@@ -89,26 +121,76 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <TripHero
-          liveArrival={
-            dashboard.liveArrival
-              ? {
-                  stopId: dashboard.liveArrival.stopId,
-                  stopName: dashboard.liveArrival.stopName,
-                  expiresAt: dashboard.liveArrival.expiresAt,
-                  destinationName: dashboard.liveArrival.destinationName,
-                  nextBusArrivalAt: dashboard.nextBusArrivalAt,
-                }
-              : null
-          }
-          nearestStops={dashboard.stops.slice(0, 3)}
-          allStops={allStopOptions}
-          inboundBuses={dashboard.inboundBuses}
-          busy={dashboard.busyAction !== null}
-          error={dashboard.actionError}
-          onLogArrival={handleLogArrival}
-          onCancelArrival={handleCancelArrival}
-        />
+        {dashboard.activeTap ? (
+          <View style={styles.rideCard}>
+            <Text style={styles.rideEyebrow}>RIDE IN PROGRESS</Text>
+            <Text style={styles.rideTitle}>{dashboard.activeTap.route.name}</Text>
+            <Text style={styles.rideSub}>
+              Paid at boarding on {dashboard.activeTap.busPlate}
+            </Text>
+            <View style={styles.rideProgressTrack}>
+              <View
+                style={[
+                  styles.rideProgressFill,
+                  {
+                    width: `${
+                      dashboard.activeTap.distanceToDestinationMeters == null
+                        ? 34
+                        : Math.max(
+                            8,
+                            Math.min(
+                              92,
+                              100 -
+                                (dashboard.activeTap.distanceToDestinationMeters / 8000) *
+                                  100,
+                            ),
+                          )
+                    }%`,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.rideMeta}>
+              {dashboard.activeTap.etaToDestinationMinutes != null
+                ? `${dashboard.activeTap.etaToDestinationMinutes} min`
+                : "On route"}
+              {dashboard.activeTap.distanceToDestinationMeters != null
+                ? ` · ${(dashboard.activeTap.distanceToDestinationMeters / 1000).toFixed(1)} km remaining`
+                : ""}
+            </Text>
+          </View>
+        ) : (
+          <TripHero
+            liveArrival={
+              dashboard.liveArrival
+                ? {
+                    stopId: dashboard.liveArrival.stopId,
+                    stopName: dashboard.liveArrival.stopName,
+                    expiresAt: dashboard.liveArrival.expiresAt,
+                    destinationName: dashboard.liveArrival.destinationName,
+                    nextBusArrivalAt: dashboard.nextBusArrivalAt,
+                  }
+                : null
+            }
+            nearestStops={dashboard.stops.slice(0, 3)}
+            allStops={allStopOptions}
+            inboundBuses={dashboard.inboundBuses}
+            busy={dashboard.busyAction !== null}
+            error={dashboard.actionError}
+            onLogArrival={handleLogArrival}
+            onCancelArrival={handleCancelArrival}
+            onPayNow={handlePayNow}
+          />
+        )}
+
+        {!dashboard.liveArrival && (
+          <InboundBuses
+            stopName={dashboard.focusStop?.name ?? "Nearest stop"}
+            isLiveArrival={false}
+            buses={dashboard.inboundBuses}
+            loading={dashboard.refreshing}
+          />
+        )}
 
         <BalanceCard
           balance={dashboard.balance}
@@ -131,7 +213,7 @@ export default function HomeScreen() {
         {/* Standalone inbound buses card — only shown pre-arrival. Once the
            passenger logs an arrival the same list renders inline inside the
            TripHero embedded view, so a separate card here would duplicate it. */}
-        {!dashboard.liveArrival && (
+        {false && !dashboard.liveArrival && (
           <InboundBuses
             stopName={dashboard.focusStop?.name ?? "Nearest stop"}
             isLiveArrival={false}
@@ -140,6 +222,16 @@ export default function HomeScreen() {
           />
         )}
 
+        <Pressable
+          onPress={() => setShowNearestStops((value) => !value)}
+          style={styles.toggleButton}
+        >
+          <Text style={styles.toggleText}>
+            {showNearestStops ? "Hide nearest stops" : "Show nearest stops"}
+          </Text>
+        </Pressable>
+
+        {showNearestStops && (
         <NearestStops
           stops={dashboard.stops.slice(0, 3)}
           liveStopId={dashboard.liveArrival?.stopId ?? null}
@@ -155,8 +247,20 @@ export default function HomeScreen() {
           onLocate={dashboard.locate}
           onPickStop={handleLogArrival}
         />
+        )}
 
-        <RecentActivity entries={dashboard.recent.slice(0, 6)} />
+        <Pressable
+          onPress={() => setShowRecentActivity((value) => !value)}
+          style={styles.toggleButton}
+        >
+          <Text style={styles.toggleText}>
+            {showRecentActivity ? "Hide recent activity" : "Show recent activity"}
+          </Text>
+        </Pressable>
+
+        {showRecentActivity && (
+          <RecentActivity entries={dashboard.recent.slice(0, 6)} />
+        )}
       </ScrollView>
     </View>
   );
@@ -220,5 +324,58 @@ const styles = StyleSheet.create({
     color: colors.ink[700],
     fontSize: fontSize.xs,
     marginTop: 2,
+  },
+  toggleButton: {
+    minHeight: 50,
+    borderRadius: 14,
+    backgroundColor: colors.brand.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+  },
+  toggleText: {
+    color: colors.white,
+    fontWeight: "800",
+    fontSize: fontSize.sm,
+  },
+  rideCard: {
+    borderRadius: 20,
+    backgroundColor: colors.brand.primary,
+    padding: spacing.xl,
+  },
+  rideEyebrow: {
+    color: colors.white,
+    fontSize: fontSize.xs,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  rideTitle: {
+    marginTop: spacing.sm,
+    color: colors.white,
+    fontSize: fontSize.xxl,
+    fontWeight: "800",
+  },
+  rideSub: {
+    marginTop: 4,
+    color: colors.white,
+    fontSize: fontSize.sm,
+  },
+  rideProgressTrack: {
+    marginTop: spacing.lg,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    overflow: "hidden",
+  },
+  rideProgressFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: colors.white,
+  },
+  rideMeta: {
+    marginTop: spacing.md,
+    color: colors.white,
+    fontWeight: "800",
+    fontSize: fontSize.sm,
   },
 });

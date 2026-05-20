@@ -11,18 +11,18 @@ export const colors = {
     secondary: "#BEB7A4",
     secondary600: "#A9A28F",
     accent: "#FFFFFC",
-    deep: "#000000",
+    deep: "#1A1814",
   },
   ink: {
     900: "#1A1814",
     700: "#3D372E",
     500: "#6E665C",
     300: "#A8A095",
-    100: "#E6E2DA",
+    100: "#F2CDBF",
   },
   surface: {
-    base: "#FAF8F3",
-    raised: "#FFFFFF",
+    base: "#FFF0E8",
+    raised: "#FFF8F4",
   },
   status: {
     success: "#22C55E",
@@ -30,15 +30,15 @@ export const colors = {
     danger: "#EF4444",
   },
   white: "#FFFFFF",
-  black: "#000000",
+  black: "#1A1814",
 } as const;
 
 // Pre-composed tints used by Pills, hover states, and ambient orbs. Kept in one
 // place so a single brand-palette change doesn't require touching every screen.
 export const tints = {
-  primarySoft: "rgba(243, 66, 19, 0.10)",
-  primaryGlow: "rgba(243, 66, 19, 0.20)",
-  primaryStrong: "rgba(243, 66, 19, 0.30)",
+  primarySoft: "rgba(243, 66, 19, 0.16)",
+  primaryGlow: "rgba(243, 66, 19, 0.28)",
+  primaryStrong: "rgba(243, 66, 19, 0.38)",
   secondarySoft: "rgba(190, 183, 164, 0.20)",
   secondaryGlow: "rgba(190, 183, 164, 0.35)",
   successSoft: "rgba(34, 197, 94, 0.14)",
@@ -77,20 +77,17 @@ export const fontSize = {
 
 export const shadow = {
   card: {
-    shadowColor: "#1A1814",
-    shadowOpacity: 0.10,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
-  // Brand-tinted shadow used on primary CTAs and the balance card. Mirrors the
-  // web `shadow-pop` utility: a warm orange halo that lifts the surface
-  // without competing with the orange primary.
   pop: {
-    shadowColor: "#F34213",
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    shadowColor: "transparent",
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
 } as const;
