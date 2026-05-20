@@ -160,31 +160,36 @@ export default function TapScreen() {
             <>
               <Text style={styles.lead}>
                 On board · {activeTap.busPlate}. Boarded at {activeTap.onStop.name}.
-                This is an older active ride. New trips are paid when you board.
+                Tap off when the bus arrives at your stop.
               </Text>
-              {false && activeTap && activeTap!.route.stops
-                .filter((s) => s.id !== activeTap!.onStop.id)
+              {activeTap.route.stops
+                .filter((s) => s.id !== activeTap.onStop.id)
                 .map((s) => {
                   const hint = hintFor(s.id);
+                  const atStop = activeTap.currentStop?.id === s.id;
                   return (
                     <Pressable
                       key={s.id}
-                      disabled={busy || !hint}
+                      disabled={busy || !hint || !atStop}
                       onPress={() => onDisembark(s.id)}
                       style={({ pressed }) => [
                         styles.row,
                         pressed && styles.rowPressed,
-                        !hint && styles.rowDisabled,
+                        (busy || !hint || !atStop) && styles.rowDisabled,
                       ]}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.rowTitle}>{s.name}</Text>
-                        {hint ? (
+                        {atStop && hint ? (
                           <Text style={styles.rowFare}>
-                            {hint.totalCredits} credits
-                            {activeTap!.groupSize > 1
-                              ? ` (${hint.creditsPerPassenger} × ${activeTap!.groupSize})`
+                            Bus is here · {hint.totalCredits} credits
+                            {activeTap.groupSize > 1
+                              ? ` (${hint.creditsPerPassenger} × ${activeTap.groupSize})`
                               : ""}
+                          </Text>
+                        ) : hint ? (
+                          <Text style={styles.rowMuted}>
+                            Wait until the bus arrives at this stop
                           </Text>
                         ) : (
                           <Text style={styles.rowMuted}>Fare not configured</Text>

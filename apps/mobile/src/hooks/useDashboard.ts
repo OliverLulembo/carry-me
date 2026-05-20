@@ -10,15 +10,14 @@ import {
 } from "@/api/client";
 import {
   cancelArrival,
-  getActiveTap,
   getDevices,
   getInboundBuses,
+  getLiveArrival,
   getNearbyStops,
   getTransactions,
   getWallet,
   logArrival,
   reverseGeocode,
-  type ActiveTap,
 } from "@/api/endpoints";
 import { useAuth } from "@/auth/session";
 import type { GeoStatus, OriginInfo } from "@/components/NearestStops";
@@ -53,7 +52,6 @@ type DashboardState = {
   // Soonest inbound bus arrival as an absolute ISO timestamp. We pre-compute
   // this server-tick so the hero countdown ticks smoothly between refreshes.
   nextBusArrivalAt: string | null;
-  activeTap: ActiveTap | null;
 };
 
 const initial: DashboardState = {
@@ -72,7 +70,6 @@ const initial: DashboardState = {
   origin: { source: "default" },
   areaLabel: null,
   nextBusArrivalAt: null,
-  activeTap: null,
 };
 
 export function useDashboard() {
@@ -133,17 +130,20 @@ export function useDashboard() {
       }
 
       try {
-        const [walletRes, txRes, stopsRes, devicesRes, activeRes] = await Promise.all([
+        const [walletRes, txRes, stopsRes, devicesRes, arrivalRes] = await Promise.all([
           getWallet(token),
           getTransactions(token, 10),
           getNearbyStops(token, loc.lat, loc.lng, 20),
           getDevices(token).catch(() => ({ devices: [] as LinkedDevice[] })),
-          getActiveTap(token).catch(() => ({ tap: null as ActiveTap | null })),
+          getLiveArrival(token).catch(() => ({ arrival: null })),
         ]);
 
-        const focusStop = stopsRes.stops[0] ?? null;
-        const inboundRes = focusStop
-          ? await getInboundBuses(token, focusStop.id).catch(() => ({
+        const serverArrival = arrivalRes.arrival;
+        const focusStopId = serverArrival?.stopId ?? stopsRes.stops[0]?.id ?? null;
+        const focusStop =
+          stopsRes.stops.find((s) => s.id === focusStopId) ?? stopsRes.stops[0] ?? null;
+        const inboundRes = focusStopId
+          ? await getInboundBuses(token, focusStopId).catch(() => ({
               buses: [] as InboundBus[],
             }))
           : { buses: [] as InboundBus[] };
@@ -170,8 +170,15 @@ export function useDashboard() {
           geoStatus,
           origin,
           nextBusArrivalAt: computeNextBusArrivalAt(inboundRes.buses),
-          activeTap: activeRes.tap,
-          liveArrival: activeRes.tap ? null : s.liveArrival,
+          liveArrival: serverArrival
+            ? {
+                stopId: serverArrival.stopId,
+                stopName: serverArrival.stopName,
+                destinationStopId: serverArrival.destinationStopId,
+                destinationName: serverArrival.destination?.name ?? null,
+                expiresAt: serverArrival.expiresAt,
+              }
+            : s.liveArrival,
         }));
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : null;
@@ -232,11 +239,11 @@ export function useDashboard() {
     return () => ctrl.abort();
   }, [state.origin.source, state.focusStop]);
 
-  // Light polling of inbound buses while there's a focus stop or live
-  // arrival. Mirrors the PRD's "updates every 30 seconds" requirement.
+  // Poll inbound buses while waiting at a stop (10s, matching web RideProvider).
   useEffect(() => {
     if (!token || (!state.focusStop && !state.liveArrival)) return;
     if (refreshTimer.current) clearInterval(refreshTimer.current);
+    const intervalMs = state.liveArrival ? 10_000 : 30_000;
     refreshTimer.current = setInterval(async () => {
       try {
         const stopId = state.liveArrival?.stopId ?? state.focusStop?.id;
@@ -250,7 +257,7 @@ export function useDashboard() {
       } catch {
         /* swallow — next tick will retry */
       }
-    }, 30_000);
+    }, intervalMs);
     return () => {
       if (refreshTimer.current) clearInterval(refreshTimer.current);
     };

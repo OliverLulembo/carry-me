@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { Header } from "@/components/Header";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
@@ -12,6 +13,7 @@ import { colors, fontSize, radii, shadow, spacing, tints } from "@/theme/tokens"
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, signOut } = useAuth();
 
   if (!user) return null;
@@ -67,6 +69,12 @@ export default function ProfileScreen() {
 
         <Card>
           <Text style={styles.sectionTitle}>Pay & ride</Text>
+          <Row
+            icon="list"
+            label="Trip history"
+            detail="Recent boarding payments"
+            onPress={() => router.push("/(tabs)/trips" as never)}
+          />
           <Row icon="credit-card" label="Payment methods" detail="Mobile money, cards" disabled />
           <Row icon="wifi" label="Linked devices" detail="One device per account in v1" disabled />
           <Row icon="gift" label="Sharing limits" detail="K500/day default" disabled />
@@ -74,7 +82,12 @@ export default function ProfileScreen() {
 
         <Card>
           <Text style={styles.sectionTitle}>About</Text>
-          <Row icon="info" label="Help & support" disabled />
+          <Row
+            icon="info"
+            label="Help & support"
+            detail="Payments, trips, devices"
+            onPress={() => router.push("/(tabs)/support" as never)}
+          />
           <Row icon="file-text" label="Terms & privacy" disabled />
           <Row
             icon="server"

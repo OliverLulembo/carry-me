@@ -1,19 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, View, Text, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors, fontSize, radii, spacing, tints } from "@/theme/tokens";
 import type { InboundBus } from "@/api/client";
 import { Card } from "./Card";
 
-// Two presentations live in one component so the hero and the standalone
-// dashboard card stay in lockstep:
-//
-//   "card"     — standalone surface; the default, used on the home tab pre-arrival.
-//   "embedded" — rendered inside another card (e.g. the dark live-arrival hero).
-//                Drops the outer Card chrome and the now-redundant stop subtitle,
-//                and tints rows for legibility on the dark background.
-//
-// Matches the web's <InboundBuses variant="embedded" /> contract exactly.
 type Variant = "card" | "embedded";
 
 export function InboundBuses({
@@ -24,6 +15,8 @@ export function InboundBuses({
   variant = "card",
   onPayNow,
   payingTripId,
+  onBoard,
+  boardingBusy,
 }: {
   stopName: string;
   isLiveArrival: boolean;
@@ -32,26 +25,25 @@ export function InboundBuses({
   variant?: Variant;
   onPayNow?: (tripId: string) => void;
   payingTripId?: string | null;
+  onBoard?: (tripId: string) => void;
+  boardingBusy?: boolean;
 }) {
   const isEmbedded = variant === "embedded";
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
+
+  const orderedBuses = useMemo(() => {
+    const ready = buses.filter((b) => b.arrivedAtStop);
+    const pending = buses.filter((b) => !b.arrivedAtStop);
+    return [...ready, ...pending];
+  }, [buses]);
 
   const body = (
     <>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <View style={styles.titleRow}>
-            <Feather
-              name="truck"
-              size={14}
-              color={isEmbedded ? colors.brand.primary : colors.brand.primary}
-            />
-            <Text
-              style={[
-                styles.title,
-                isEmbedded && { color: colors.white },
-              ]}
-            >
+            <Feather name="truck" size={14} color={colors.brand.primary} />
+            <Text style={[styles.title, isEmbedded && { color: colors.white }]}>
               Inbound buses
             </Text>
           </View>
@@ -77,23 +69,13 @@ export function InboundBuses({
           </Text>
         </View>
       ) : buses.length === 0 ? (
-        <View
-          style={[
-            styles.empty,
-            isEmbedded && styles.emptyEmbedded,
-          ]}
-        >
+        <View style={[styles.empty, isEmbedded && styles.emptyEmbedded]}>
           <Feather
             name="truck"
             size={28}
             color={isEmbedded ? "rgba(255,255,255,0.55)" : colors.ink[300]}
           />
-          <Text
-            style={[
-              styles.emptyTitle,
-              isEmbedded && { color: colors.white },
-            ]}
-          >
+          <Text style={[styles.emptyTitle, isEmbedded && { color: colors.white }]}>
             No active buses right now.
           </Text>
           <Text style={[styles.emptyText, isEmbedded && styles.emptyTextDark]}>
@@ -102,14 +84,16 @@ export function InboundBuses({
         </View>
       ) : (
         <View style={{ gap: 10 }}>
-          {buses.map((b) => (
+          {orderedBuses.map((b) => (
             <BusRow
               key={b.tripId}
               bus={b}
               embedded={isEmbedded}
               onPayNow={onPayNow}
+              onBoard={onBoard}
+              boardingBusy={boardingBusy ?? false}
               paying={payingTripId === b.tripId}
-              paymentDisabled={payingTripId != null}
+              paymentDisabled={payingTripId != null || !!boardingBusy}
               selected={selectedTripId === b.tripId}
               onSelect={() => setSelectedTripId(b.tripId)}
             />
@@ -129,6 +113,8 @@ function BusRow({
   bus,
   embedded,
   onPayNow,
+  onBoard,
+  boardingBusy,
   paying,
   paymentDisabled,
   selected,
@@ -137,6 +123,8 @@ function BusRow({
   bus: InboundBus;
   embedded: boolean;
   onPayNow?: (tripId: string) => void;
+  onBoard?: (tripId: string) => void;
+  boardingBusy?: boolean;
   paying: boolean;
   paymentDisabled: boolean;
   selected: boolean;
@@ -154,6 +142,7 @@ function BusRow({
         ? colors.status.warn
         : colors.status.danger;
   const shouldBlink = tone === colors.status.success;
+  const arrived = bus.arrivedAtStop;
 
   useEffect(() => {
     if (!shouldBlink) {
@@ -178,6 +167,45 @@ function BusRow({
     return () => loop.stop();
   }, [blink, shouldBlink]);
 
+  if (arrived && onBoard) {
+    return (
+      <Pressable
+        disabled={boardingBusy || bus.seatsAvailable === 0}
+        onPress={() => onBoard(bus.tripId)}
+        style={({ pressed }) => [
+          styles.boardRow,
+          embedded && styles.boardRowEmbedded,
+          { opacity: boardingBusy || bus.seatsAvailable === 0 ? 0.6 : pressed ? 0.9 : 1 },
+        ]}
+      >
+        <View style={{ flex: 1 }}>
+          <View style={styles.boardEyebrow}>
+            <View style={styles.boardDot} />
+            <Text style={styles.boardEyebrowText}>Bus is here — tap to board</Text>
+          </View>
+          <View style={styles.rowHead}>
+            <View style={styles.plate}>
+              <Text style={styles.plateText}>{bus.busPlate}</Text>
+            </View>
+            <Text
+              style={[styles.routeName, embedded && { color: "rgba(255,255,255,0.7)" }]}
+              numberOfLines={1}
+            >
+              {bus.route.name}
+            </Text>
+          </View>
+          <Text style={[styles.boardSub, embedded && { color: colors.white }]}>
+            Tap your phone to board · {bus.seatsAvailable} seat
+            {bus.seatsAvailable === 1 ? "" : "s"} left
+          </Text>
+        </View>
+        <View style={styles.boardIcon}>
+          <Feather name="smartphone" size={24} color={colors.white} />
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       onPress={onSelect}
@@ -185,6 +213,7 @@ function BusRow({
       style={({ pressed }) => [
         styles.row,
         embedded && styles.rowEmbedded,
+        arrived && styles.rowArrived,
         selected && styles.rowSelected,
         pressed && { opacity: 0.9 },
       ]}
@@ -202,27 +231,32 @@ function BusRow({
           </Text>
         </View>
         <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Feather
-              name="clock"
-              size={12}
-              color={embedded ? "rgba(255,255,255,0.7)" : colors.ink[500]}
-            />
-            <Text
-              style={[styles.metaText, embedded && { color: colors.white }]}
-            >
-              {bus.etaMinutes != null ? `${bus.etaMinutes} min` : "ETA—"}
-            </Text>
-          </View>
+          {arrived ? (
+            <View style={styles.metaItem}>
+              <View style={styles.boardDot} />
+              <Text style={[styles.arrivedText, embedded && { color: colors.brand.primary }]}>
+                At your stop — tap to board
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.metaItem}>
+              <Feather
+                name="clock"
+                size={12}
+                color={embedded ? "rgba(255,255,255,0.7)" : colors.ink[500]}
+              />
+              <Text style={[styles.metaText, embedded && { color: colors.white }]}>
+                {bus.etaMinutes != null ? `${bus.etaMinutes} min` : "ETA—"}
+              </Text>
+            </View>
+          )}
           <View style={styles.metaItem}>
             <Feather
               name="users"
               size={12}
               color={embedded ? "rgba(255,255,255,0.7)" : colors.ink[500]}
             />
-            <Text
-              style={[styles.metaText, embedded && { color: colors.white }]}
-            >
+            <Text style={[styles.metaText, embedded && { color: colors.white }]}>
               {bus.seatsAvailable}/{bus.capacity} seats
             </Text>
           </View>
@@ -256,10 +290,7 @@ function BusRow({
       <View style={styles.seatsBlock}>
         <Text style={styles.seatsCount}>{bus.seatsAvailable}</Text>
         <Text
-          style={[
-            styles.seatsLabel,
-            embedded && { color: "rgba(255,255,255,0.7)" },
-          ]}
+          style={[styles.seatsLabel, embedded && { color: "rgba(255,255,255,0.7)" }]}
         >
           {bus.seatsAvailable === 1 ? "seat free" : "seats free"}
         </Text>
@@ -366,6 +397,51 @@ const styles = StyleSheet.create({
   emptyTextDark: {
     color: "rgba(255,255,255,0.75)",
   },
+  boardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: spacing.lg,
+    borderRadius: radii.xl,
+    borderWidth: 2,
+    borderColor: colors.brand.primary,
+    backgroundColor: "rgba(243, 66, 19, 0.05)",
+  },
+  boardRowEmbedded: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  boardEyebrow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  boardDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.brand.primary,
+  },
+  boardEyebrowText: {
+    color: colors.brand.primary,
+    fontWeight: "800",
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  boardSub: {
+    marginTop: 8,
+    color: colors.brand.deep,
+    fontWeight: "700",
+    fontSize: fontSize.sm,
+  },
+  boardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    backgroundColor: colors.brand.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -379,6 +455,14 @@ const styles = StyleSheet.create({
   rowEmbedded: {
     backgroundColor: "rgba(255,255,255,0.10)",
     borderColor: "rgba(255,255,255,0.18)",
+  },
+  rowArrived: {
+    borderColor: "rgba(243, 66, 19, 0.40)",
+    backgroundColor: "rgba(243, 66, 19, 0.05)",
+  },
+  rowSelected: {
+    borderColor: colors.brand.primary,
+    backgroundColor: tints.primarySoft,
   },
   rowHead: {
     flexDirection: "row",
@@ -419,6 +503,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: "600",
   },
+  arrivedText: {
+    color: colors.brand.primary,
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+  },
   warnPill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -441,9 +530,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 3,
   },
-  // Right-rail "seats free" summary block — replaces the previous "Reserve"
-  // CTA so the row prioritises information (how full this bus is) over an
-  // action that the backend can't honour yet.
   seatsBlock: {
     alignItems: "flex-end",
     paddingLeft: 6,
@@ -462,10 +548,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
-  },
-  rowSelected: {
-    borderColor: colors.brand.primary,
-    backgroundColor: tints.primarySoft,
   },
   payNow: {
     marginTop: 8,

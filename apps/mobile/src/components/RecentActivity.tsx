@@ -26,17 +26,19 @@ export function RecentActivity({
   entries,
   title = "Recent activity",
   emptyText = "No transactions yet. Top up to get started.",
+  onSeeAll,
 }: {
   entries: WalletEntry[];
   title?: string;
   emptyText?: string;
+  onSeeAll?: () => void;
 }) {
   return (
     <Card>
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
-        {entries.length > 0 && (
-          <Pressable accessibilityLabel="See all">
+        {entries.length > 0 && onSeeAll && (
+          <Pressable accessibilityLabel="See all" onPress={onSeeAll}>
             <Text style={styles.seeAll}>See all →</Text>
           </Pressable>
         )}

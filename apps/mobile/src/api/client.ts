@@ -86,6 +86,7 @@ export type InboundBus = {
   seatsAvailable: number;
   capacity: number;
   etaMinutes: number | null;
+  arrivedAtStop: boolean;
   lastSeenAt: string | null;
   lastSeenAgoMinutes: number | null;
 };

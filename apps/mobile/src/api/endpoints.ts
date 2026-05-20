@@ -40,6 +40,17 @@ export function getDevices(token: string) {
   return api<{ devices: LinkedDevice[] }>("/api/me/devices", { token });
 }
 
+export function getLiveArrival(token: string) {
+  return api<{ arrival: LiveArrival | null }>("/api/me/arrival", { token });
+}
+
+export function getTrips(token: string, limit = 20) {
+  return api<{ trips: PassengerTrip[] }>("/api/me/trips", {
+    token,
+    query: { limit },
+  });
+}
+
 // ── Top-up & share ──────────────────────────────────────────────────────────
 export type TopUpMethod =
   | "MTN_MOMO"
@@ -129,11 +140,45 @@ export type ActiveTap = {
   distanceToDestinationMeters: number | null;
   etaToDestinationMinutes: number | null;
   busPlate: string;
+  currentStop: { id: string; name: string } | null;
+  nextStop: { id: string; name: string } | null;
   route: {
     id: string;
     name: string;
     stops: Array<{ id: string; name: string; order: number }>;
   };
+};
+
+export type LiveArrival = {
+  id: string;
+  stopId: string;
+  stopName: string;
+  stopLat: number;
+  stopLng: number;
+  destinationStopId: string | null;
+  destination: { id: string; name: string; lat: number; lng: number } | null;
+  expiresAt: string;
+};
+
+export type PassengerTrip = {
+  id: string;
+  status: string;
+  groupSize: number;
+  reservedCredits: number;
+  finalCredits: number | null;
+  tappedOnAt: string;
+  tappedOffAt: string | null;
+  trip: {
+    id: string;
+    status: string;
+    direction: string;
+    startedAt: string;
+    endedAt: string | null;
+    busPlate: string;
+    routeName: string;
+  };
+  onStop: { id: string; name: string };
+  offStop: { id: string; name: string } | null;
 };
 
 export type FareHint = {

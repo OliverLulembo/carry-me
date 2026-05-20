@@ -47,7 +47,10 @@ type Props = {
   error: string | null;
   onLogArrival: (stopId: string, destinationStopId?: string) => void;
   onCancelArrival: () => void;
-  onPayNow: (tripId: string) => void;
+  onPayNow?: (tripId: string) => void;
+  onBoard?: (tripId: string) => void;
+  boardingBusy?: boolean;
+  rideError?: string | null;
   payingTripId?: string | null;
 };
 
@@ -67,6 +70,9 @@ export function TripHero({
   onLogArrival,
   onCancelArrival,
   onPayNow,
+  onBoard,
+  boardingBusy,
+  rideError,
   payingTripId,
 }: Props) {
   const [destination, setDestination] = useState<StopOption | null>(null);
@@ -88,6 +94,9 @@ export function TripHero({
         busy={busy}
         onCancel={onCancelArrival}
         onPayNow={onPayNow}
+        onBoard={onBoard}
+        boardingBusy={boardingBusy}
+        rideError={rideError}
         payingTripId={payingTripId}
       />
     );
@@ -198,16 +207,30 @@ function WaitingHero({
   busy,
   onCancel,
   onPayNow,
+  onBoard,
+  boardingBusy,
+  rideError,
   payingTripId,
 }: {
   arrival: LiveArrival;
   inboundBuses: InboundBus[];
   busy: boolean;
   onCancel: () => void;
-  onPayNow: (tripId: string) => void;
+  onPayNow?: (tripId: string) => void;
+  onBoard?: (tripId: string) => void;
+  boardingBusy?: boolean;
+  rideError?: string | null;
   payingTripId?: string | null;
 }) {
   const nextBusCountdown = useCountdown(arrival.nextBusArrivalAt);
+  const readyBuses = inboundBuses.filter((b) => b.arrivedAtStop);
+  const busHasArrived = readyBuses.length > 0;
+  const primaryBus = readyBuses[0];
+
+  const handleBoardClick = () => {
+    if (!primaryBus || !onBoard) return;
+    onBoard(primaryBus.tripId);
+  };
 
   return (
     <LinearGradient
@@ -221,10 +244,12 @@ function WaitingHero({
 
       <View style={styles.eyebrowRow}>
         <View style={styles.liveDot} />
-        <Text style={styles.liveText}>WAITING AT STOP</Text>
+        <Text style={styles.liveText}>
+          {busHasArrived ? "BUS AT YOUR STOP" : "WAITING AT STOP"}
+        </Text>
       </View>
 
-      {arrival.destinationName && (
+      {arrival.destinationName && !busHasArrived && (
         <View style={styles.toPill}>
           <Feather name="navigation" size={12} color={colors.brand.primary} />
           <Text style={styles.toPillLabel}>Heading to</Text>
@@ -234,35 +259,64 @@ function WaitingHero({
         </View>
       )}
 
-      <Text style={styles.darkHeading}>
-        You&apos;re at{" "}
-        <Text style={styles.darkHeadingAccent}>{arrival.stopName}</Text>
-      </Text>
-      <Text style={styles.darkSub}>
-        Drivers heading here know you&apos;re waiting. Hold your phone to the
-        driver&apos;s reader to board.
-      </Text>
-
-      <View style={styles.darkPills}>
-        <View style={styles.darkPill}>
-          <Feather name="wifi" size={12} color={colors.white} />
-          <Text style={styles.darkPillText}>Tap-to-ride ready</Text>
-        </View>
-        {arrival.nextBusArrivalAt && nextBusCountdown != null ? (
-          <View style={styles.darkPill}>
-            <Feather name="clock" size={12} color={colors.brand.primary} />
-            <Text style={styles.darkPillLabel}>Next bus in</Text>
-            <Text style={styles.darkPillAccent}>
-              {formatCountdown(nextBusCountdown)}
+      {busHasArrived && primaryBus ? (
+        <>
+          <Text style={styles.darkHeading}>Your bus is here</Text>
+          <Text style={styles.darkSub}>
+            <Text style={styles.darkHeadingAccent}>{primaryBus.busPlate}</Text> is boarding at{" "}
+            <Text style={{ fontWeight: "700", color: colors.white }}>
+              {arrival.stopName}
             </Text>
+            . Tap below to board — fare is charged when you tap off.
+          </Text>
+          <Button
+            label={`Tap to board ${primaryBus.busPlate}`}
+            loading={boardingBusy}
+            disabled={primaryBus.seatsAvailable === 0}
+            leftIcon={<Feather name="smartphone" size={18} color={colors.white} />}
+            onPress={handleBoardClick}
+            block
+            style={{ marginTop: spacing.lg }}
+          />
+          {readyBuses.length > 1 && (
+            <Text style={styles.multiBusHint}>
+              {readyBuses.length} buses at this stop — tap above or pick from the list
+            </Text>
+          )}
+        </>
+      ) : (
+        <>
+          <Text style={styles.darkHeading}>
+            You&apos;re at{" "}
+            <Text style={styles.darkHeadingAccent}>{arrival.stopName}</Text>
+          </Text>
+          <Text style={styles.darkSub}>
+            Drivers heading here know you&apos;re waiting. You&apos;ll get an in-app
+            notification when your bus arrives and opens boarding.
+          </Text>
+
+          <View style={styles.darkPills}>
+            <View style={styles.darkPill}>
+              <Feather name="smartphone" size={12} color={colors.white} />
+              <Text style={styles.darkPillText}>Tap-to-ride ready</Text>
+            </View>
+            {arrival.nextBusArrivalAt && nextBusCountdown != null ? (
+              <View style={styles.darkPill}>
+                <Feather name="clock" size={12} color={colors.brand.primary} />
+                <Text style={styles.darkPillLabel}>Next bus in</Text>
+                <Text style={styles.darkPillAccent}>
+                  {formatCountdown(nextBusCountdown)}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.darkPill}>
+                <Feather name="clock" size={12} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.darkPillTextMuted}>No buses inbound yet</Text>
+              </View>
+            )}
           </View>
-        ) : (
-          <View style={styles.darkPill}>
-            <Feather name="clock" size={12} color="rgba(255,255,255,0.7)" />
-            <Text style={styles.darkPillTextMuted}>No buses inbound yet</Text>
-          </View>
-        )}
-      </View>
+        </>
+      )}
 
       <View style={{ marginTop: spacing.lg }}>
         <InboundBuses
@@ -271,9 +325,17 @@ function WaitingHero({
           buses={inboundBuses}
           variant="embedded"
           onPayNow={onPayNow}
+          onBoard={busHasArrived ? onBoard : undefined}
+          boardingBusy={boardingBusy}
           payingTripId={payingTripId}
         />
       </View>
+
+      {rideError ? (
+        <View style={styles.rideError}>
+          <Text style={styles.rideErrorText}>{rideError}</Text>
+        </View>
+      ) : null}
 
       <Button
         label="I'm no longer waiting"
@@ -679,6 +741,23 @@ const styles = StyleSheet.create({
     color: colors.brand.primary,
     fontWeight: "800",
     fontSize: fontSize.xs,
+  },
+  multiBusHint: {
+    marginTop: 8,
+    color: "rgba(255,255,255,0.65)",
+    fontSize: fontSize.xs,
+    textAlign: "center",
+  },
+  rideError: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radii.md,
+    backgroundColor: tints.dangerSoft,
+  },
+  rideErrorText: {
+    color: colors.status.danger,
+    fontSize: fontSize.sm,
   },
   // ── Autocomplete ─────────────────────────────────────────────────────────
   combo: {
