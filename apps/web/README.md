@@ -13,7 +13,7 @@ npm install
 # 2. Create the local SQLite DB + run the initial migration
 npx prisma migrate dev --name init
 
-# 3. Seed demo data (1 passenger, 1 driver, 1 owner, 1 bus on a live trip, 6 stops, fare matrix)
+# 3. Seed demo data (1 passenger, 1 driver, 1 owner, 1 bus, 6 stops, fare matrix, past trips)
 npx prisma db seed
 
 # 4. Run

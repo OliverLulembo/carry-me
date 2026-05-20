@@ -76,7 +76,20 @@ export function TripHero({
     busy: rideBusy,
     destinationStopId,
     setModal,
+    inboundBuses: liveInboundBuses,
+    tapOn,
   } = useRide();
+
+  const readyBuses = liveInboundBuses.filter((b) => b.arrivedAtStop);
+
+  const handleBoardClick = () => {
+    if (readyBuses.length === 0) return;
+    if (readyBuses.length === 1) {
+      void tapOn(readyBuses[0]!.tripId);
+      return;
+    }
+    setModal("board");
+  };
 
   const [destination, setDestination] = useState<StopOption | null>(
     liveArrival?.destination ?? null,
@@ -164,6 +177,7 @@ export function TripHero({
       !!activeTap.nextStop &&
       !!destinationStopId &&
       activeTap.nextStop.id === destinationStopId;
+    const canTapOff = !!activeTap.currentStop;
 
     return (
       <OnboardTripHero
@@ -171,6 +185,7 @@ export function TripHero({
         rideLoading={rideLoading}
         rideBusy={rideBusy}
         isDestinationNext={isDestinationNext}
+        canTapOff={canTapOff}
         onTapOff={() => setModal("off")}
       />
     );
@@ -178,6 +193,9 @@ export function TripHero({
 
   // ── Live arrival view ────────────────────────────────────────────────────
   if (liveArrival) {
+    const busHasArrived = readyBuses.length > 0;
+    const primaryBus = readyBuses[0];
+
     return (
       <div className="card relative overflow-hidden p-6 sm:p-8 h-full bg-deep-gradient text-ink-700 min-h-[420px]">
         <TripMapLayer
@@ -196,10 +214,10 @@ export function TripHero({
         >
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand-primary">
             <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
-            WAITING AT STOP
+            {busHasArrived ? "BUS AT YOUR STOP" : "WAITING AT STOP"}
           </span>
 
-          {liveArrival.destination && (
+          {liveArrival.destination && !busHasArrived && (
             <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium">
               <Navigation className="w-3.5 h-3.5 text-brand-primary" size={14} />
               <span className="text-ink-500">Heading to</span>
@@ -207,47 +225,83 @@ export function TripHero({
             </div>
           )}
 
-          <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight text-ink-700">
-            You&apos;re at{" "}
-            <span className="text-brand-primary">{liveArrival.stopName}</span>
-          </h2>
-          <p className="mt-2 text-ink-500 text-sm max-w-md">
-            Drivers heading here know you&apos;re waiting. Hold your phone to the
-            driver&apos;s reader to board.
-          </p>
+          {busHasArrived && primaryBus ? (
+            <>
+              <h2 className="mt-3 text-2xl sm:text-4xl font-bold leading-tight text-ink-700">
+                Your bus is here
+              </h2>
+              <p className="mt-2 text-ink-500 text-sm max-w-md">
+                <span className="font-semibold text-brand-deep">{primaryBus.busPlate}</span> is
+                boarding at{" "}
+                <span className="font-medium text-ink-700">{liveArrival.stopName}</span>.
+                Tap below to board — fare is charged when you tap off.
+              </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
-              <Nfc className="w-3.5 h-3.5" size={14} /> Tap-to-ride ready
-            </span>
-            {liveArrival.nextBusArrivalAt && nextBusCountdown != null && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium">
-                <Clock className="w-3.5 h-3.5 text-brand-primary" size={14} />
-                <span className="text-ink-500">Next bus in</span>
-                <span
-                  className="font-bold text-brand-primary tabular-nums"
-                  aria-live="polite"
-                >
-                  {formatCountdown(nextBusCountdown)}
+              <button
+                type="button"
+                onClick={handleBoardClick}
+                disabled={rideBusy || primaryBus.seatsAvailable === 0}
+                className="mt-6 w-full inline-flex items-center justify-center gap-3 px-6 py-5 rounded-2xl bg-brand-primary text-white font-bold text-lg hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rideBusy ? (
+                  <Loader2 className="w-5 h-5 animate-spin" size={20} />
+                ) : (
+                  <Nfc className="w-5 h-5" size={20} />
+                )}
+                Tap to board {primaryBus.busPlate}
+              </button>
+
+              {readyBuses.length > 1 && (
+                <p className="mt-2 text-xs text-center text-ink-500">
+                  {readyBuses.length} buses at this stop — tap above or pick from the list
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight text-ink-700">
+                You&apos;re at{" "}
+                <span className="text-brand-primary">{liveArrival.stopName}</span>
+              </h2>
+              <p className="mt-2 text-ink-500 text-sm max-w-md">
+                Drivers heading here know you&apos;re waiting. You&apos;ll get an in-app
+                notification when your bus arrives and opens boarding.
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
+                  <Nfc className="w-3.5 h-3.5" size={14} /> Tap-to-ride ready
                 </span>
-              </span>
-            )}
-            {liveArrival.nextBusArrivalAt == null && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-500">
-                <Clock className="w-3.5 h-3.5" size={14} />
-                <span>No buses inbound yet</span>
-              </span>
-            )}
-          </div>
+                {liveArrival.nextBusArrivalAt && nextBusCountdown != null && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium">
+                    <Clock className="w-3.5 h-3.5 text-brand-primary" size={14} />
+                    <span className="text-ink-500">Next bus in</span>
+                    <span
+                      className="font-bold text-brand-primary tabular-nums"
+                      aria-live="polite"
+                    >
+                      {formatCountdown(nextBusCountdown)}
+                    </span>
+                  </span>
+                )}
+                {liveArrival.nextBusArrivalAt == null && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-500">
+                    <Clock className="w-3.5 h-3.5" size={14} />
+                    <span>No buses inbound yet</span>
+                  </span>
+                )}
+              </div>
+            </>
+          )}
 
-          {/* Inbound buses, inline. Replaces the old scroll-anchor button — the
-             list is what the passenger came here for, so we just show it. */}
           <div className="mt-6">
             <InboundBuses
               stopName={liveArrival.stopName}
               isLiveArrival
-              buses={inboundBuses}
+              buses={liveInboundBuses}
               variant="embedded"
+              onBoard={busHasArrived ? (tripId) => void tapOn(tripId) : undefined}
+              boardingBusy={rideBusy}
             />
           </div>
 

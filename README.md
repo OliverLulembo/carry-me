@@ -26,9 +26,22 @@ npx prisma db seed
 npm run dev
 ```
 
-Then open <http://localhost:3000/dashboard>.
+Then open <http://localhost:3000> and sign in with a seeded account (see below), or click **Register** to create a new passenger or owner account.
 
-The seed creates one demo passenger (`+260977000001`), one route with 6 stops, a fare matrix, and one live bus on a trip — enough for the dashboard to render real data.
+The seed creates demo users for every role, one route with 6 stops, a fare matrix, and one demo bus — enough for the dashboards to render real data. Start a live trip from the driver dashboard when testing tap-on/tap-off.
+
+## Demo accounts (after seed)
+
+Run `npx prisma db seed` from `apps/web` if you have not already. All seeded users share the same password:
+
+| Role | Name | Email | Phone | Password | Sign in |
+|------|------|-------|-------|----------|---------|
+| Passenger | Chanda Mwila | `passenger@carryme.dev` | `+260977000001` | `carryme123` | [/login/passenger](http://localhost:3000/login/passenger) |
+| Driver | Mwila Phiri | `driver@carryme.dev` | `+260977000002` | `carryme123` | [/login/driver](http://localhost:3000/login/driver) |
+| Bus owner | Mr. Banda | `owner@carryme.dev` | `+260977000003` | `carryme123` | [/login/owner](http://localhost:3000/login/owner) |
+| Admin | CarryMe Ops | `admin@carryme.dev` | `+260977000004` | `carryme123` | [/login/admin](http://localhost:3000/login/admin) |
+
+You can sign in with either **email** or **phone** plus the password above. In development, one-click dev-login shortcuts are also available on the landing page.
 
 ## Quick start (mobile)
 

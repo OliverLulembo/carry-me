@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       },
       fare: result.fare,
       balance: result.balance,
+      tripEnded: result.tripEnded,
       message: `Charged ${result.fare.totalCredits} credits for your trip.`,
     });
   } catch (e) {

@@ -117,17 +117,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-app">
-      <DashboardHeader user={{ fullName: user.fullName, phone: user.phone }} />
+      <RideProvider
+        boardingStopId={focusStopId ?? null}
+        boardingStopName={
+          liveArrival?.stop.name ?? nearest[0]?.name ?? "Nearest stop"
+        }
+        inboundBuses={inboundBuses}
+        destinationStopId={liveDestination?.id ?? null}
+        isWaitingAtStop={!!liveArrival}
+      >
+        <DashboardHeader user={{ fullName: user.fullName, phone: user.phone }} />
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-24 pt-6">
-        <RideProvider
-          boardingStopId={focusStopId ?? null}
-          boardingStopName={
-            liveArrival?.stop.name ?? nearest[0]?.name ?? "Nearest stop"
-          }
-          inboundBuses={inboundBuses}
-          destinationStopId={liveDestination?.id ?? null}
-        >
+        <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-24 pt-6">
         <div className="grid grid-cols-12 gap-5">
           {/* HERO — The single most important action on this page */}
           <section className="col-span-12 lg:col-span-8">
@@ -207,8 +208,8 @@ export default async function DashboardPage() {
             />
           </section>
         </div>
-        </RideProvider>
-      </main>
+        </main>
+      </RideProvider>
     </div>
   );
 }
@@ -256,6 +257,7 @@ async function loadInboundBuses(stopId: string) {
       seatsAvailable: Math.max(0, trip.bus.capacity - onboard),
       capacity: trip.bus.capacity,
       etaMinutes,
+      arrivedAtStop: trip.currentStopId === stopId,
     };
   });
 }

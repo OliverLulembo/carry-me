@@ -143,7 +143,7 @@ async function main() {
     }
   }
 
-  // ── Bus + Driver Device + Live Trip ──────────────────────────────────────
+  // ── Bus + Driver Device ──────────────────────────────────────────────────
   const bus = await db.bus.upsert({
     where: { plate: "ALD-1234" },
     update: { ownerId: owner.id, defaultRouteId: route.id, capacity: 22 },
@@ -155,22 +155,10 @@ async function main() {
     },
   });
 
-  // End any prior demo trips so we always have exactly one ACTIVE trip
+  // No active trip in seed — drivers start trips from the dashboard.
   await db.trip.updateMany({
     where: { busId: bus.id, status: TripStatus.ACTIVE },
     data: { status: TripStatus.COMPLETED, endedAt: new Date() },
-  });
-
-  const trip = await db.trip.create({
-    data: {
-      busId: bus.id,
-      driverId: driver.id,
-      routeId: route.id,
-      status: TripStatus.ACTIVE,
-      lastLat: stops[1].lat,           // bus is currently near Burma Road
-      lastLng: stops[1].lng,
-      lastSeenAt: new Date(),
-    },
   });
 
   await db.device.upsert({
@@ -191,32 +179,6 @@ async function main() {
       label: "Bus reader — ALD-1234",
       active: true,
       lastSeenAt: new Date(),
-    },
-  });
-
-  // Passengers waiting at upcoming stops (driver dashboard preview)
-  const arrivalExpiry = new Date(Date.now() + 30 * 60 * 1000);
-  for (const stop of [stops[2], stops[3]]) {
-    await db.stopArrival.create({
-      data: {
-        userId: passenger.id,
-        stopId: stop.id,
-        destinationStopId: stops[5].id,
-        expiresAt: arrivalExpiry,
-      },
-    });
-  }
-
-  // On-board taps for the live trip manifest
-  await db.tap.deleteMany({ where: { tripId: trip.id } });
-  await db.tap.create({
-    data: {
-      tripId: trip.id,
-      passengerId: passenger.id,
-      onStopId: stops[1].id,
-      groupSize: 1,
-      reservedCredits: 0,
-      status: "HELD",
     },
   });
 
@@ -374,8 +336,7 @@ async function main() {
   console.log(`  Demo admin: ${admin.email} (${admin.phone})`);
   console.log(`  Wallet balance: ${seedAmount} credits`);
   console.log(`  Route: ${route.name} with ${stops.length} stops`);
-  console.log(`  Demo driver: ${driver.fullName} (${driver.phone})`);
-  console.log(`  Live trip id: ${trip.id} (bus ${bus.plate})`);
+  console.log(`  Demo bus: ${bus.plate} (no active trip — start one from the driver dashboard)`);
 }
 
 main()

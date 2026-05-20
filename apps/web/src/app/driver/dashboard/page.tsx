@@ -3,6 +3,7 @@ import { TripStatus } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { distanceMeters } from "@/lib/format";
+import { resolveRouteProgress } from "@/lib/route-position";
 import { DriverDashboardHeader } from "./components/DriverDashboardHeader";
 import { ActiveTripHero } from "./components/ActiveTripHero";
 import { TripStatsCard } from "./components/TripStatsCard";
@@ -85,7 +86,10 @@ export default async function DriverDashboardPage() {
   const capacity = activeTrip?.bus.capacity ?? 22;
 
   let upcomingStops: UpcomingStop[] = [];
+  let nextStopId: string | null = null;
   let nextStopName: string | null = null;
+  let currentStopName: string | null = null;
+  let waitingAtStop = 0;
 
   if (activeTrip) {
     const routeStops = activeTrip.route.stops;
@@ -94,20 +98,33 @@ export default async function DriverDashboardPage() {
         ? { lat: activeTrip.lastLat, lng: activeTrip.lastLng }
         : null;
 
-    let currentIdx = 0;
-    if (position) {
-      let bestDist = Infinity;
-      for (let i = 0; i < routeStops.length; i++) {
-        const d = distanceMeters(position, routeStops[i].stop);
-        if (d < bestDist) {
-          bestDist = d;
-          currentIdx = i;
-        }
-      }
-    }
+    const progress = resolveRouteProgress({
+      routeStops,
+      currentStopId: activeTrip.currentStopId,
+      lastDepartedStopId: activeTrip.lastDepartedStopId,
+      position,
+    });
 
-    const upcoming = routeStops.slice(currentIdx + 1, currentIdx + 6);
-    nextStopName = upcoming[0]?.stop.name ?? null;
+    nextStopId = progress.nextStop?.id ?? null;
+    nextStopName = progress.nextStop?.name ?? null;
+    currentStopName = activeTrip.currentStopId
+      ? (routeStops.find((rs) => rs.stopId === activeTrip.currentStopId)?.stop.name ?? null)
+      : null;
+
+    const upcoming = routeStops.slice(
+      progress.upcomingStartIdx,
+      progress.upcomingStartIdx + 5,
+    );
+
+    if (activeTrip.currentStopId) {
+      waitingAtStop = await db.stopArrival.count({
+        where: {
+          stopId: activeTrip.currentStopId,
+          cancelledAt: null,
+          expiresAt: { gt: new Date() },
+        },
+      });
+    }
 
     const stopIds = upcoming.map((rs) => rs.stopId);
     const waitingByStop =
@@ -138,6 +155,7 @@ export default async function DriverDashboardPage() {
         order: rs.order,
         etaMinutes,
         waitingCount: waitingMap.get(rs.stopId) ?? 0,
+        isCurrent: activeTrip.currentStopId === rs.stopId,
       };
     });
   }
@@ -158,7 +176,12 @@ export default async function DriverDashboardPage() {
         lastLng: activeTrip.lastLng,
         lastSeenAt: activeTrip.lastSeenAt?.toISOString() ?? null,
         startedAt: activeTrip.startedAt.toISOString(),
+        nextStopId,
         nextStopName,
+        currentStopId: activeTrip.currentStopId,
+        currentStopName,
+        isBoarding: !!activeTrip.currentStopId,
+        waitingAtStop,
       }
     : null;
 

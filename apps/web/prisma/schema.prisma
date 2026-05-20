@@ -135,6 +135,8 @@ model BusStop {
   fareTo      FareSegment[]  @relation("FareEnd")
   tapsOn      Tap[]          @relation("TapOnStop")
   tapsOff     Tap[]          @relation("TapOffStop")
+  tripsAtStop Trip[]         @relation("TripCurrentStop")
+  tripsDepartedFrom Trip[]   @relation("TripLastDepartedStop")
 }
 
 model Route {
@@ -224,6 +226,14 @@ model Trip {
   lastLat     Float?
   lastLng     Float?
   lastSeenAt  DateTime?
+  // Set when the driver marks arrival — gates passenger tap-on/off at this stop.
+  currentStop   BusStop?  @relation("TripCurrentStop", fields: [currentStopId], references: [id])
+  currentStopId String?
+  currentStopAt DateTime?
+  // Set when the driver leaves a stop — used to advance the next-stop pointer
+  // while GPS may still sit at the departed stop.
+  lastDepartedStop   BusStop? @relation("TripLastDepartedStop", fields: [lastDepartedStopId], references: [id])
+  lastDepartedStopId String?
 
   taps        Tap[]
 

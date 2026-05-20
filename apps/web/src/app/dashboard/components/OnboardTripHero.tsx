@@ -8,9 +8,10 @@ export function OnboardTripHero(props: {
   rideLoading: boolean;
   rideBusy: boolean;
   isDestinationNext: boolean;
+  canTapOff: boolean;
   onTapOff: () => void;
 }) {
-  const { activeTap, rideLoading, rideBusy, isDestinationNext, onTapOff } = props;
+  const { activeTap, rideLoading, rideBusy, isDestinationNext, canTapOff, onTapOff } = props;
 
   return (
     <div className="card relative overflow-hidden p-6 sm:p-8 h-full bg-deep-gradient text-ink-700 min-h-[420px]">
@@ -38,6 +39,15 @@ export function OnboardTripHero(props: {
             <Loader2 className="w-4 h-4 animate-spin" size={16} />
             Updating your ride…
           </p>
+        ) : activeTap.currentStop ? (
+          <div className="mt-4">
+            <p className="text-sm font-semibold uppercase tracking-wider text-brand-primary">
+              Bus at stop
+            </p>
+            <h2 className="mt-1 text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-brand-primary">
+              {activeTap.currentStop.name}
+            </h2>
+          </div>
         ) : activeTap.nextStop ? (
           <div className="mt-4">
             {isDestinationNext ? (
@@ -64,8 +74,10 @@ export function OnboardTripHero(props: {
 
         <p className="mt-2 text-ink-500 text-sm max-w-md">
           Boarded at <span className="font-medium text-ink-700">{activeTap.onStop.name}</span>
-          {activeTap.groupSize > 1 ? ` · ${activeTap.groupSize} passengers` : ""}. Fare
-          is charged when you tap off at your destination.
+          {activeTap.groupSize > 1 ? ` · ${activeTap.groupSize} passengers` : ""}.{" "}
+          {canTapOff
+            ? "You can tap off now — fare is charged when you disembark."
+            : "Tap off becomes available when the driver marks arrival at your stop."}
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -81,7 +93,7 @@ export function OnboardTripHero(props: {
         <button
           type="button"
           onClick={onTapOff}
-          disabled={rideBusy}
+          disabled={rideBusy || !canTapOff}
           className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {rideBusy ? (

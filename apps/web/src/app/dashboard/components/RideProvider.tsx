@@ -6,11 +6,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import type { InboundBus } from "./InboundBuses";
+import { NotificationToast } from "./NotificationToast";
+import {
+  createBoardingNotification,
+  type PassengerNotification,
+} from "./passenger-notifications";
 
 export type RouteStop = { id: string; name: string; order: number };
 
@@ -23,6 +29,7 @@ export type ActiveTap = {
   onStop: { id: string; name: string };
   offStop: { id: string; name: string } | null;
   busPlate: string;
+  currentStop: { id: string; name: string } | null;
   nextStop: { id: string; name: string } | null;
   route: { id: string; name: string; stops: RouteStop[] };
 };
@@ -53,6 +60,13 @@ type RideContextValue = {
   boardingStopName: string;
   inboundBuses: InboundBus[];
   destinationStopId: string | null;
+  notifications: PassengerNotification[];
+  unreadNotificationCount: number;
+  latestToast: PassengerNotification | null;
+  dismissToast: () => void;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
 };
 
 const RideContext = createContext<RideContextValue | null>(null);
@@ -63,21 +77,66 @@ export function RideProvider({
   boardingStopName,
   inboundBuses,
   destinationStopId,
+  isWaitingAtStop = false,
 }: {
   children: ReactNode;
   boardingStopId: string | null;
   boardingStopName: string;
   inboundBuses: InboundBus[];
   destinationStopId: string | null;
+  /** True when the passenger has logged "I'm here" at a stop. */
+  isWaitingAtStop?: boolean;
 }) {
   const router = useRouter();
   const [activeTap, setActiveTap] = useState<ActiveTap | null>(null);
   const [fareHints, setFareHints] = useState<FareHint[]>([]);
+  const [inboundBusesState, setInboundBusesState] = useState(inboundBuses);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<RideModal>(null);
   const [groupSize, setGroupSize] = useState(1);
+  const [notifications, setNotifications] = useState<PassengerNotification[]>([]);
+  const [latestToast, setLatestToast] = useState<PassengerNotification | null>(null);
+  const knownReadyTripIdsRef = useRef<Set<string> | null>(null);
+
+  const notifyBusBoarding = useCallback(
+    (bus: InboundBus) => {
+      const notification = createBoardingNotification({
+        tripId: bus.tripId,
+        busPlate: bus.busPlate,
+        routeName: bus.routeName,
+        stopName: boardingStopName,
+      });
+      setNotifications((prev) => [notification, ...prev].slice(0, 20));
+      setLatestToast(notification);
+    },
+    [boardingStopName],
+  );
+
+  const processInboundBuses = useCallback(
+    (buses: InboundBus[]) => {
+      const readyIds = new Set(
+        buses.filter((b) => b.arrivedAtStop).map((b) => b.tripId),
+      );
+
+      if (knownReadyTripIdsRef.current === null) {
+        knownReadyTripIdsRef.current = readyIds;
+      } else {
+        if (isWaitingAtStop) {
+          for (const bus of buses) {
+            if (bus.arrivedAtStop && !knownReadyTripIdsRef.current.has(bus.tripId)) {
+              notifyBusBoarding(bus);
+            }
+          }
+        }
+        knownReadyTripIdsRef.current = readyIds;
+      }
+
+      setInboundBusesState(buses);
+    },
+    [isWaitingAtStop, notifyBusBoarding],
+  );
 
   const refreshActive = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -96,17 +155,89 @@ export function RideProvider({
   }, []);
 
   useEffect(() => {
+    processInboundBuses(inboundBuses);
+  }, [inboundBuses, processInboundBuses]);
+
+  // Reset boarding detection when the waiting stop changes.
+  useEffect(() => {
+    knownReadyTripIdsRef.current = null;
+    setLatestToast(null);
+  }, [boardingStopId]);
+
+  const refreshInboundBuses = useCallback(async () => {
+    if (!boardingStopId) return;
+    try {
+      const res = await fetch(`/api/stops/${boardingStopId}/inbound-buses`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) return;
+      const buses: InboundBus[] = (data.buses ?? []).map(
+        (b: {
+          tripId: string;
+          busPlate: string;
+          route: { name: string };
+          seatsAvailable: number;
+          capacity: number;
+          etaMinutes: number | null;
+          arrivedAtStop: boolean;
+        }) => ({
+          tripId: b.tripId,
+          busPlate: b.busPlate,
+          routeName: b.route.name,
+          seatsAvailable: b.seatsAvailable,
+          capacity: b.capacity,
+          etaMinutes: b.etaMinutes,
+          arrivedAtStop: b.arrivedAtStop,
+        }),
+      );
+      processInboundBuses(buses);
+    } catch {
+      /* keep last known buses */
+    }
+  }, [boardingStopId, processInboundBuses]);
+
+  useEffect(() => {
     refreshActive();
   }, [refreshActive]);
 
-  // Keep next-stop (bus GPS) fresh while the passenger is on board.
+  // Poll inbound buses while waiting to board.
+  useEffect(() => {
+    if (activeTap || !boardingStopId) return;
+    void refreshInboundBuses();
+    const id = setInterval(() => {
+      void refreshInboundBuses();
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [activeTap, boardingStopId, refreshInboundBuses]);
+
+  // Keep ride status fresh while on board.
   useEffect(() => {
     if (!activeTap) return;
     const id = setInterval(() => {
       void refreshActive({ silent: true });
-    }, 15_000);
+    }, 10_000);
     return () => clearInterval(id);
   }, [activeTap, refreshActive]);
+
+  const dismissToast = useCallback(() => setLatestToast(null), []);
+
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+  }, []);
+
+  const markAllNotificationsRead = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, []);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+    setLatestToast(null);
+  }, []);
+
+  const unreadNotificationCount = notifications.filter((n) => !n.read).length;
 
   const tapOn = useCallback(
     async (tripId: string) => {
@@ -180,8 +311,15 @@ export function RideProvider({
       setError,
       boardingStopId,
       boardingStopName,
-      inboundBuses,
+      inboundBuses: inboundBusesState,
       destinationStopId,
+      notifications,
+      unreadNotificationCount,
+      latestToast,
+      dismissToast,
+      markNotificationRead,
+      markAllNotificationsRead,
+      clearNotifications,
     }),
     [
       activeTap,
@@ -196,12 +334,24 @@ export function RideProvider({
       tapOff,
       boardingStopId,
       boardingStopName,
-      inboundBuses,
+      inboundBusesState,
       destinationStopId,
+      notifications,
+      unreadNotificationCount,
+      latestToast,
+      dismissToast,
+      markNotificationRead,
+      markAllNotificationsRead,
+      clearNotifications,
     ],
   );
 
-  return <RideContext.Provider value={value}>{children}</RideContext.Provider>;
+  return (
+    <RideContext.Provider value={value}>
+      {children}
+      <NotificationToast notification={latestToast} onDismiss={dismissToast} />
+    </RideContext.Provider>
+  );
 }
 
 export function useRide() {
@@ -210,4 +360,9 @@ export function useRide() {
     throw new Error("useRide must be used within RideProvider");
   }
   return ctx;
+}
+
+/** Returns ride context when inside RideProvider; null on other pages. */
+export function useRideOptional() {
+  return useContext(RideContext);
 }

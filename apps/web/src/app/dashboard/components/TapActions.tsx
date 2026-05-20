@@ -22,13 +22,16 @@ export function TapActions() {
   } = useRide();
 
   const handleBoardClick = () => {
-    if (inboundBuses.length === 0) return;
-    if (inboundBuses.length === 1) {
-      void tapOn(inboundBuses[0]!.tripId);
+    const readyBuses = inboundBuses.filter((b) => b.arrivedAtStop);
+    if (readyBuses.length === 0) return;
+    if (readyBuses.length === 1) {
+      void tapOn(readyBuses[0]!.tripId);
       return;
     }
     setModal("board");
   };
+
+  const readyBuses = inboundBuses.filter((b) => b.arrivedAtStop);
 
   const hintFor = (stopId: string) => fareHints.find((h) => h.stopId === stopId);
 
@@ -42,6 +45,7 @@ export function TapActions() {
           error={error}
           busy={busy}
           inboundBuses={inboundBuses}
+          readyBuses={readyBuses}
           handleBoardClick={handleBoardClick}
           groupSize={groupSize}
           setModal={setModal}
@@ -54,7 +58,7 @@ export function TapActions() {
             Boarding at <span className="font-medium text-brand-deep">{boardingStopName}</span>
           </p>
           <ul className="space-y-2">
-            {inboundBuses.map((b) => (
+            {readyBuses.map((b) => (
               <li key={b.tripId}>
                 <button
                   type="button"
@@ -64,9 +68,8 @@ export function TapActions() {
                 >
                   <p className="font-semibold text-brand-deep">{b.busPlate}</p>
                   <p className="text-xs text-ink-500">{b.routeName}</p>
-                  <p className="text-xs text-ink-500 mt-1">
-                    {b.seatsAvailable} seats ·{" "}
-                    {b.etaMinutes != null ? `~${b.etaMinutes} min` : "ETA unknown"}
+                  <p className="text-xs text-brand-primary mt-1 font-medium">
+                    At your stop · {b.seatsAvailable} seats
                   </p>
                 </button>
               </li>
@@ -85,21 +88,26 @@ export function TapActions() {
               .filter((s) => s.id !== activeTap.onStop.id)
               .map((s) => {
                 const hint = hintFor(s.id);
+                const atStop = activeTap.currentStop?.id === s.id;
                 return (
                   <li key={s.id}>
                     <button
                       type="button"
-                      disabled={busy || !hint}
+                      disabled={busy || !hint || !atStop}
                       onClick={() => tapOff(s.id)}
                       className="w-full text-left p-3 rounded-xl border border-ink-100 hover:border-brand-primary/40 hover:bg-surface-subtle transition disabled:opacity-60"
                     >
                       <p className="font-semibold text-brand-deep">{s.name}</p>
-                      {hint ? (
+                      {atStop && hint ? (
                         <p className="text-xs text-brand-primary mt-0.5">
-                          {hint.totalCredits} credits
+                          Bus is here · {hint.totalCredits} credits
                           {activeTap.groupSize > 1
                             ? ` (${hint.creditsPerPassenger} × ${activeTap.groupSize})`
                             : ""}
+                        </p>
+                      ) : hint ? (
+                        <p className="text-xs text-ink-400 mt-0.5">
+                          Wait until the bus arrives at this stop
                         </p>
                       ) : (
                         <p className="text-xs text-ink-400 mt-0.5">Fare not configured</p>
@@ -148,6 +156,7 @@ function QuickActionsBody({
   error,
   busy,
   inboundBuses,
+  readyBuses,
   handleBoardClick,
   groupSize,
   setModal,
@@ -157,6 +166,7 @@ function QuickActionsBody({
   error: string | null;
   busy: boolean;
   inboundBuses: ReturnType<typeof useRide>["inboundBuses"];
+  readyBuses: ReturnType<typeof useRide>["inboundBuses"];
   handleBoardClick: () => void;
   groupSize: number;
   setModal: ReturnType<typeof useRide>["setModal"];
@@ -184,18 +194,21 @@ function QuickActionsBody({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={readyBuses.length > 0 ? "space-y-3" : "grid grid-cols-2 gap-3"}>
         <ActionButton
           icon={Nfc}
-          label="Tap to board"
+          label={readyBuses.length > 0 ? "Tap to board now" : "Tap to board"}
           sub={
-            inboundBuses.length === 0
-              ? "No active buses nearby"
-              : "Board via API (demo)"
+            readyBuses.length > 0
+              ? `${readyBuses[0]!.busPlate} is at your stop · ${readyBuses.length} bus${readyBuses.length === 1 ? "" : "es"} ready`
+              : inboundBuses.length > 0
+                ? "Waiting for bus to arrive"
+                : "No active buses nearby"
           }
           tone="primary"
-          disabled={busy || inboundBuses.length === 0}
+          disabled={busy || readyBuses.length === 0}
           onClick={handleBoardClick}
+          prominent={readyBuses.length > 0}
         />
         <ActionButton
           icon={Users}
@@ -246,6 +259,7 @@ function ActionButton({
   tone,
   disabled,
   onClick,
+  prominent,
 }: {
   icon: React.ComponentType<{ className?: string; size?: number }>;
   label: string;
@@ -253,7 +267,27 @@ function ActionButton({
   tone: "primary" | "secondary";
   disabled?: boolean;
   onClick?: () => void;
+  prominent?: boolean;
 }) {
+  if (prominent) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-brand-primary bg-brand-primary text-white hover:bg-brand-primary-600 transition text-left disabled:opacity-60 shadow-pop"
+      >
+        <span className="w-12 h-12 grid place-items-center rounded-xl bg-white/20 shrink-0">
+          <Icon className="w-6 h-6" size={24} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-base font-bold">{label}</p>
+          <p className="text-sm text-white/80 mt-0.5">{sub}</p>
+        </div>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"

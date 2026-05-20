@@ -15,8 +15,23 @@ export class TapError extends Error {
 }
 
 export async function getActivePassengerTap(passengerId: string) {
+  // Orphaned HELD taps can remain when a driver ends a trip before passengers tap off.
+  // Clear them so the dashboard does not show a stale "on board" state.
+  await db.tap.updateMany({
+    where: {
+      passengerId,
+      status: TapStatus.HELD,
+      trip: { status: { not: TripStatus.ACTIVE } },
+    },
+    data: { status: TapStatus.CANCELLED },
+  });
+
   return db.tap.findFirst({
-    where: { passengerId, status: TapStatus.HELD },
+    where: {
+      passengerId,
+      status: TapStatus.HELD,
+      trip: { status: TripStatus.ACTIVE },
+    },
     include: {
       onStop: { select: { id: true, name: true } },
       offStop: { select: { id: true, name: true } },
@@ -26,6 +41,9 @@ export async function getActivePassengerTap(passengerId: string) {
           routeId: true,
           lastLat: true,
           lastLng: true,
+          currentStopId: true,
+          lastDepartedStopId: true,
+          currentStop: { select: { id: true, name: true } },
           bus: { select: { plate: true } },
           route: {
             select: {
@@ -86,6 +104,14 @@ export async function tapOn(params: {
     throw new TapError("Trip not found or no longer active", "TRIP_NOT_ACTIVE", 404);
   }
 
+  if (trip.currentStopId !== params.stopId) {
+    throw new TapError(
+      "The bus has not arrived at this stop yet. Wait for the driver to mark arrival.",
+      "BUS_NOT_AT_STOP",
+      409,
+    );
+  }
+
   if (!(await stopOnRoute(trip.routeId, params.stopId))) {
     throw new TapError("This stop is not on the bus route", "STOP_NOT_ON_ROUTE");
   }
@@ -137,6 +163,7 @@ export async function tapOff(params: {
               id: true,
               routeId: true,
               status: true,
+              currentStopId: true,
               bus: { select: { ownerId: true } },
             },
           },
@@ -154,6 +181,7 @@ export async function tapOff(params: {
               id: true,
               routeId: true,
               status: true,
+              currentStopId: true,
               bus: { select: { ownerId: true } },
             },
           },
@@ -167,6 +195,14 @@ export async function tapOff(params: {
 
   if (tap.trip.status !== TripStatus.ACTIVE) {
     throw new TapError("Trip is no longer active", "TRIP_NOT_ACTIVE", 409);
+  }
+
+  if (tap.trip.currentStopId !== params.stopId) {
+    throw new TapError(
+      "The bus has not arrived at this stop yet. Wait for the driver to mark arrival.",
+      "BUS_NOT_AT_STOP",
+      409,
+    );
   }
 
   if (params.stopId === tap.onStopId) {
@@ -220,7 +256,7 @@ export async function tapOff(params: {
 
   const ownerId = tap.trip.bus.ownerId;
 
-  const updated = await db.$transaction(async (tx) => {
+  const { updated, tripEnded } = await db.$transaction(async (tx) => {
     const newBalance = wallet.balance - finalCredits;
     await tx.walletEntry.create({
       data: {
@@ -256,7 +292,7 @@ export async function tapOff(params: {
       });
     }
 
-    return tx.tap.update({
+    const settledTap = await tx.tap.update({
       where: { id: tap.id },
       data: {
         offStopId: params.stopId,
@@ -276,6 +312,21 @@ export async function tapOff(params: {
         },
       },
     });
+
+    const remainingHeld = await tx.tap.count({
+      where: { tripId: tap.trip.id, status: TapStatus.HELD },
+    });
+
+    let ended = false;
+    if (remainingHeld === 0) {
+      await tx.trip.update({
+        where: { id: tap.trip.id },
+        data: { status: TripStatus.COMPLETED, endedAt: new Date() },
+      });
+      ended = true;
+    }
+
+    return { updated: settledTap, tripEnded: ended };
   });
 
   return {
@@ -286,6 +337,7 @@ export async function tapOff(params: {
       totalCredits: finalCredits,
     },
     balance: wallet.balance - finalCredits,
+    tripEnded,
   };
 }
 
@@ -306,7 +358,10 @@ export function serializeActiveTap(
       ? { lat: tap.trip.lastLat, lng: tap.trip.lastLng }
       : null;
 
-  const nextStop = computeNextRouteStop(routeStops, busPosition);
+  const nextStop = computeNextRouteStop(routeStops, busPosition, {
+    currentStopId: tap.trip.currentStopId,
+    lastDepartedStopId: tap.trip.lastDepartedStopId,
+  });
 
   return {
     id: tap.id,
@@ -317,6 +372,7 @@ export function serializeActiveTap(
     onStop: tap.onStop,
     offStop: tap.offStop,
     busPlate: tap.trip.bus.plate,
+    currentStop: tap.trip.currentStop,
     nextStop: nextStop ? { id: nextStop.id, name: nextStop.name } : null,
     route: {
       id: tap.trip.route.id,

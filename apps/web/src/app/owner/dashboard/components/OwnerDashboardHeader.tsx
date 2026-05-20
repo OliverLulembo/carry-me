@@ -1,6 +1,7 @@
-import { Bell, ChevronDown } from "lucide-react";
+import { Bell } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/BrandLogo";
+import { UserMenuDropdown } from "@/components/UserMenuDropdown";
 
 export function OwnerDashboardHeader({
   user,
@@ -62,18 +63,11 @@ function HeaderActions({
         <Bell className="w-4.5 h-4.5" size={18} />
         <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-primary" />
       </button>
-      <button className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-surface-subtle transition">
-        <div className="w-8 h-8 rounded-full bg-brand-deep text-white grid place-items-center text-xs font-bold">
-          {initials}
-        </div>
-        <div className="hidden sm:block text-left">
-          <p className="text-xs font-semibold text-brand-deep leading-tight">
-            {user.fullName.split(" ")[0]}
-          </p>
-          <p className="text-[10px] text-ink-500 leading-tight">{user.phone}</p>
-        </div>
-        <ChevronDown className="w-3.5 h-3.5 text-ink-500" size={14} />
-      </button>
+      <UserMenuDropdown
+        user={user}
+        initials={initials}
+        loginHref="/login/owner"
+      />
     </div>
   );
 }

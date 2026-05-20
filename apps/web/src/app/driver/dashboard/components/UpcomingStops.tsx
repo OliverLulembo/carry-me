@@ -6,6 +6,7 @@ export type UpcomingStop = {
   order: number;
   etaMinutes: number | null;
   waitingCount: number;
+  isCurrent: boolean;
 };
 
 export function UpcomingStops({ stops }: { stops: UpcomingStop[] }) {
@@ -47,12 +48,17 @@ export function UpcomingStops({ stops }: { stops: UpcomingStop[] }) {
                     </span>
                     <span className="text-sm font-semibold text-brand-deep truncate">
                       {s.name}
+                      {s.isCurrent ? (
+                        <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-brand-primary">
+                          · Boarding
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <div className="mt-2 flex items-center gap-4 text-xs text-ink-700">
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-ink-500" size={14} />
-                      {s.etaMinutes != null ? `${s.etaMinutes} min` : "ETA—"}
+                      {s.isCurrent ? "Boarding now" : s.etaMinutes != null ? `${s.etaMinutes} min` : "ETA—"}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-ink-500" size={14} />

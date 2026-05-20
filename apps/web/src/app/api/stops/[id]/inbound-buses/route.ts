@@ -58,6 +58,7 @@ export async function GET(
       seatsAvailable: Math.max(0, trip.bus.capacity - onboard),
       capacity: trip.bus.capacity,
       etaMinutes,
+      arrivedAtStop: trip.currentStopId === stopId,
       lastSeenAt: trip.lastSeenAt,
       lastSeenAgoMinutes:
         trip.lastSeenAt != null

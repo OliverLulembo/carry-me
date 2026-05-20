@@ -4,12 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
+  ArrowRight,
   Bus,
   Loader2,
   Map as MapIcon,
+  MapPin,
   Nfc,
   Route,
   Square,
+  Users,
+  X,
 } from "lucide-react";
 import { timeAgo } from "@/lib/format";
 
@@ -27,7 +31,12 @@ export type ActiveTripView = {
   lastLng: number | null;
   lastSeenAt: string | null;
   startedAt: string;
+  nextStopId: string | null;
   nextStopName: string | null;
+  currentStopId: string | null;
+  currentStopName: string | null;
+  isBoarding: boolean;
+  waitingAtStop: number;
 };
 
 export function ActiveTripHero({
@@ -42,6 +51,42 @@ export function ActiveTripHero({
   const [error, setError] = useState<string | null>(null);
   const [mapFocused, setMapFocused] = useState(false);
   const [selectedRouteId, setSelectedRouteId] = useState(assignableRoutes[0]?.id ?? "");
+
+  async function departStop() {
+    if (!activeTrip?.isBoarding) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/driver/trips/${activeTrip.id}/depart`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Could not continue trip");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not continue trip");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function arriveAtStop() {
+    if (!activeTrip?.nextStopId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/driver/trips/${activeTrip.id}/arrive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stopId: activeTrip.nextStopId }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Could not mark arrival");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not mark arrival");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function endTrip() {
     if (!activeTrip) return;
@@ -89,24 +134,17 @@ export function ActiveTripHero({
           }
         : undefined;
 
+    const { isBoarding } = activeTrip;
+
     return (
       <div className="card relative overflow-hidden p-6 sm:p-8 h-full bg-deep-gradient text-ink-700 min-h-[420px]">
-        <div className="absolute inset-0 z-0">
-          <button
-            type="button"
-            onClick={() => setMapFocused(true)}
-            className="absolute inset-0 w-full h-full"
-            aria-label="Open trip map"
-          >
-            <LiveTripMap
-              origin={busPosition}
-              interactive={false}
-            />
-          </button>
-          <div className="absolute inset-0 bg-gradient-to-t from-white/95 via-white/40 to-transparent pointer-events-none" />
-        </div>
+        <DriverTripMapLayer
+          focused={mapFocused}
+          busPosition={busPosition}
+        />
 
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-brand-primary/30 blur-3xl pointer-events-none" />
+        <div className="absolute -right-8 -bottom-12 w-56 h-56 rounded-full bg-brand-secondary/20 blur-3xl pointer-events-none" />
 
         <div
           className={`relative z-10 transition-opacity duration-300 ${
@@ -115,7 +153,7 @@ export function ActiveTripHero({
         >
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand-primary">
             <span className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
-            TRIP IN PROGRESS
+            {isBoarding ? "BOARDING" : "EN ROUTE"}
           </span>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -131,23 +169,51 @@ export function ActiveTripHero({
             </span>
           </div>
 
-          <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight text-ink-700">
-            {activeTrip.nextStopName ? (
-              <>
-                Next stop:{" "}
-                <span className="text-brand-primary">{activeTrip.nextStopName}</span>
-              </>
-            ) : (
-              <>On route — ready for passengers</>
-            )}
-          </h2>
-          <p className="mt-2 text-ink-500 text-sm max-w-md">
-            Trip started {timeAgo(activeTrip.startedAt)}.
-            {activeTrip.lastSeenAt
-              ? ` GPS updated ${timeAgo(activeTrip.lastSeenAt)}.`
-              : " Waiting for GPS fix."}{" "}
-            Hold your reader to a passenger phone or card to board them.
-          </p>
+          {isBoarding ? (
+            <>
+              <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight text-ink-700">
+                Boarding at{" "}
+                <span className="text-brand-primary">{activeTrip.currentStopName}</span>
+              </h2>
+              <p className="mt-2 text-ink-500 text-sm max-w-md">
+                Passengers can tap on or off. When everyone is settled, continue to
+                {activeTrip.nextStopName ? (
+                  <> <span className="font-medium text-ink-700">{activeTrip.nextStopName}</span>.</>
+                ) : (
+                  <> the next leg of your route.</>
+                )}
+              </p>
+              {activeTrip.waitingAtStop > 0 && (
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-primary/10 border border-brand-primary/20">
+                  <Users className="w-4 h-4 text-brand-primary" size={16} />
+                  <span className="text-sm font-semibold text-brand-deep">
+                    {activeTrip.waitingAtStop} passenger
+                    {activeTrip.waitingAtStop === 1 ? "" : "s"} waiting to board
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <h2 className="mt-3 text-2xl sm:text-3xl font-bold leading-tight text-ink-700">
+                {activeTrip.nextStopName ? (
+                  <>
+                    Next stop:{" "}
+                    <span className="text-brand-primary">{activeTrip.nextStopName}</span>
+                  </>
+                ) : (
+                  <>On route — ready for passengers</>
+                )}
+              </h2>
+              <p className="mt-2 text-ink-500 text-sm max-w-md">
+                Trip started {timeAgo(activeTrip.startedAt)}.
+                {activeTrip.lastSeenAt
+                  ? ` GPS updated ${timeAgo(activeTrip.lastSeenAt)}.`
+                  : " Waiting for GPS fix."}{" "}
+                Mark arrival when you reach the stop to open boarding.
+              </p>
+            </>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
@@ -155,7 +221,7 @@ export function ActiveTripHero({
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
               <Bus className="w-3.5 h-3.5 text-brand-primary" size={14} />
-              Collecting taps
+              {isBoarding ? "Collecting taps" : "Driving to stop"}
             </span>
           </div>
 
@@ -166,6 +232,37 @@ export function ActiveTripHero({
           )}
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isBoarding ? (
+              <button
+                type="button"
+                onClick={departStop}
+                disabled={busy}
+                className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition disabled:opacity-50 sm:col-span-2"
+              >
+                {busy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" size={16} />
+                ) : (
+                  <ArrowRight className="w-4 h-4" size={16} />
+                )}
+                {activeTrip.nextStopName
+                  ? `Continue to ${activeTrip.nextStopName}`
+                  : "Continue trip"}
+              </button>
+            ) : activeTrip.nextStopId ? (
+              <button
+                type="button"
+                onClick={arriveAtStop}
+                disabled={busy}
+                className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition disabled:opacity-50 sm:col-span-2"
+              >
+                {busy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" size={16} />
+                ) : (
+                  <MapPin className="w-4 h-4" size={16} />
+                )}
+                Arrived at {activeTrip.nextStopName ?? "stop"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setMapFocused(true)}
@@ -178,7 +275,7 @@ export function ActiveTripHero({
               type="button"
               onClick={endTrip}
               disabled={busy}
-              className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-5 py-4 rounded-2xl border border-ink-100 bg-white/80 backdrop-blur hover:bg-white transition font-semibold text-ink-700 disabled:opacity-50"
             >
               {busy ? (
                 <Loader2 className="w-4 h-4 animate-spin" size={16} />
@@ -190,21 +287,11 @@ export function ActiveTripHero({
           </div>
         </div>
 
-        {mapFocused && busPosition && (
-          <div className="absolute inset-0 z-20 bg-white flex flex-col">
-            <div className="flex-1 min-h-0 relative">
-              <LiveTripMap origin={busPosition} interactive />
-            </div>
-            <div className="p-4 border-t border-ink-100">
-              <button
-                type="button"
-                onClick={() => setMapFocused(false)}
-                className="w-full py-3 rounded-xl border border-ink-100 font-semibold text-brand-deep hover:bg-surface-subtle"
-              >
-                Close map
-              </button>
-            </div>
-          </div>
+        {mapFocused && (
+          <DriverTripMapOverlay
+            activeTrip={activeTrip}
+            onClose={() => setMapFocused(false)}
+          />
         )}
       </div>
     );
@@ -267,5 +354,78 @@ export function ActiveTripHero({
         </button>
       </div>
     </div>
+  );
+}
+
+type BusPosition = { lat: number; lng: number; label: string };
+
+// Map backdrop matching the passenger live-arrival hero: muted by a diagonal
+// gradient scrim and non-interactive until the driver opens the full map.
+function DriverTripMapLayer({
+  focused,
+  busPosition,
+}: {
+  focused: boolean;
+  busPosition?: BusPosition;
+}) {
+  return (
+    <>
+      <div
+        className={`absolute inset-0 transition-opacity duration-500 ${
+          focused ? "z-30 opacity-100" : "z-0 opacity-100"
+        }`}
+      >
+        <LiveTripMap origin={busPosition} interactive={focused} />
+      </div>
+
+      {!focused && (
+        <div
+          aria-hidden
+          className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-tr from-white from-30% via-white/80 via-65% to-transparent"
+        />
+      )}
+    </>
+  );
+}
+
+function DriverTripMapOverlay({
+  activeTrip,
+  onClose,
+}: {
+  activeTrip: ActiveTripView;
+  onClose: () => void;
+}) {
+  const stopLabel = activeTrip.isBoarding
+    ? `Boarding at ${activeTrip.currentStopName}`
+    : activeTrip.nextStopName
+      ? `Next: ${activeTrip.nextStopName}`
+      : "On route";
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Hide map"
+        className="absolute top-4 right-4 z-40 w-9 h-9 grid place-items-center rounded-full bg-white shadow-card text-brand-deep hover:bg-surface-subtle transition"
+      >
+        <X className="w-4 h-4" size={16} />
+      </button>
+
+      <div className="absolute bottom-4 left-4 right-4 z-40 rounded-2xl bg-white/95 backdrop-blur shadow-card border border-ink-100 px-4 py-3 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-brand-primary/10 grid place-items-center shrink-0">
+          <Route className="w-4 h-4 text-brand-primary" size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-primary">
+            Trip in progress
+          </p>
+          <p className="text-sm font-semibold text-brand-deep truncate">
+            {activeTrip.routeName} · {activeTrip.busPlate}
+          </p>
+          <p className="text-xs text-ink-500 truncate">{stopLabel}</p>
+        </div>
+      </div>
+    </>
   );
 }

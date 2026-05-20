@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { TripStatus } from "@prisma/client";
+import { TapStatus, TripStatus } from "@prisma/client";
 import { requireDriver } from "@/lib/driver";
 import { db } from "@/lib/db";
 
@@ -19,10 +19,16 @@ export async function POST(
     return NextResponse.json({ error: "Active trip not found" }, { status: 404 });
   }
 
-  await db.trip.update({
-    where: { id },
-    data: { status: TripStatus.COMPLETED, endedAt: new Date() },
-  });
+  await db.$transaction([
+    db.tap.updateMany({
+      where: { tripId: id, status: TapStatus.HELD },
+      data: { status: TapStatus.CANCELLED },
+    }),
+    db.trip.update({
+      where: { id },
+      data: { status: TripStatus.COMPLETED, endedAt: new Date() },
+    }),
+  ]);
 
   return NextResponse.json({ ok: true });
 }

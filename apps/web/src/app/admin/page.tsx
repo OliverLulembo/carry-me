@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { MapPin, Route, Users, Smartphone, CreditCard } from "lucide-react";
+import { Bus, MapPin, Route, Users, Smartphone, CreditCard } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOverviewPage() {
-  const [userCount, stopCount, routeCount, deviceCount, activeTrips] = await Promise.all([
+  const [userCount, stopCount, routeCount, deviceCount, tripCount, activeTrips] = await Promise.all([
     db.user.count(),
     db.busStop.count(),
     db.route.count({ where: { active: true } }),
     db.device.count(),
+    db.trip.count(),
     db.trip.count({ where: { status: "ACTIVE" } }),
   ]);
 
@@ -18,8 +19,9 @@ export default async function AdminOverviewPage() {
     { href: "/admin/routes", label: "Active routes", value: routeCount, icon: Route },
     { href: "/admin/users", label: "Users", value: userCount, icon: Users },
     { href: "/admin/devices", label: "Devices", value: deviceCount, icon: Smartphone },
+    { href: "/admin/trips", label: "All trips", value: tripCount, icon: Bus },
     {
-      href: "/admin/credits",
+      href: "/admin/trips?status=ACTIVE",
       label: "Active trips",
       value: activeTrips,
       icon: CreditCard,
@@ -65,6 +67,11 @@ export default async function AdminOverviewPage() {
           <li>
             <Link href="/admin/users" className="text-brand-primary hover:underline">
               Suspend or restore user accounts
+            </Link>
+          </li>
+          <li>
+            <Link href="/admin/trips" className="text-brand-primary hover:underline">
+              Delete trips and clear tap records from the database
             </Link>
           </li>
           <li>
