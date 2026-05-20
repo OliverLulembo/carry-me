@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Loader2, Nfc, Users, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Loader2, Users, X } from "lucide-react";
 import { useRide } from "./RideProvider";
 
 export function TapActions() {
@@ -14,23 +14,17 @@ export function TapActions() {
     setModal,
     groupSize,
     setGroupSize,
-    tapOn,
-    tapOff,
     boardingStopName,
     inboundBuses,
-    fareHints,
+    tapOn,
   } = useRide();
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
   const handleBoardClick = () => {
     if (inboundBuses.length === 0) return;
-    if (inboundBuses.length === 1) {
-      void tapOn(inboundBuses[0]!.tripId);
-      return;
-    }
+    setSelectedTripId(null);
     setModal("board");
   };
-
-  const hintFor = (stopId: string) => fareHints.find((h) => h.stopId === stopId);
 
   return (
     <>
@@ -42,7 +36,6 @@ export function TapActions() {
           error={error}
           busy={busy}
           inboundBuses={inboundBuses}
-          handleBoardClick={handleBoardClick}
           groupSize={groupSize}
           setModal={setModal}
         />
@@ -59,8 +52,12 @@ export function TapActions() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => tapOn(b.tripId)}
-                  className="w-full text-left p-3 rounded-xl border border-ink-100 hover:border-brand-primary/40 hover:bg-surface-subtle transition disabled:opacity-60"
+                  onClick={() => setSelectedTripId(b.tripId)}
+                  className={`w-full text-left p-3 rounded-xl border transition disabled:opacity-60 ${
+                    selectedTripId === b.tripId
+                      ? "border-brand-primary bg-brand-primary/10"
+                      : "border-ink-100 hover:border-brand-primary/40 hover:bg-surface-subtle"
+                  }`}
                 >
                   <p className="font-semibold text-brand-deep">{b.busPlate}</p>
                   <p className="text-xs text-ink-500">{b.routeName}</p>
@@ -72,50 +69,23 @@ export function TapActions() {
               </li>
             ))}
           </ul>
-        </Modal>
-      )}
-
-      {modal === "off" && activeTap && (
-        <Modal title="Tap off — where are you getting off?" onClose={() => setModal(null)}>
-          <p className="text-xs text-ink-500 mb-3">
-            From {activeTap.onStop.name} on {activeTap.route.name}
-          </p>
-          <ul className="space-y-2 max-h-72 overflow-y-auto">
-            {activeTap.route.stops
-              .filter((s) => s.id !== activeTap.onStop.id)
-              .map((s) => {
-                const hint = hintFor(s.id);
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      disabled={busy || !hint}
-                      onClick={() => tapOff(s.id)}
-                      className="w-full text-left p-3 rounded-xl border border-ink-100 hover:border-brand-primary/40 hover:bg-surface-subtle transition disabled:opacity-60"
-                    >
-                      <p className="font-semibold text-brand-deep">{s.name}</p>
-                      {hint ? (
-                        <p className="text-xs text-brand-primary mt-0.5">
-                          {hint.totalCredits} credits
-                          {activeTap.groupSize > 1
-                            ? ` (${hint.creditsPerPassenger} × ${activeTap.groupSize})`
-                            : ""}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-ink-400 mt-0.5">Fare not configured</p>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-          </ul>
+          {selectedTripId && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => tapOn(selectedTripId)}
+              className="mt-4 w-full rounded-xl bg-brand-primary px-5 py-3 font-bold text-white hover:bg-brand-primary-600 disabled:opacity-60"
+            >
+              {busy ? "Paying..." : "Pay now"}
+            </button>
+          )}
         </Modal>
       )}
 
       {modal === "group" && (
         <Modal title="Group size" onClose={() => setModal(null)}>
           <p className="text-xs text-ink-500 mb-4">
-            Applies to your next tap on. Total fare is multiplied by group size at tap-off.
+            Applies to your next Pay now action. Total fare is multiplied by group size at boarding.
           </p>
           <div className="flex flex-wrap gap-2">
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -148,7 +118,6 @@ function QuickActionsBody({
   error,
   busy,
   inboundBuses,
-  handleBoardClick,
   groupSize,
   setModal,
 }: {
@@ -157,14 +126,13 @@ function QuickActionsBody({
   error: string | null;
   busy: boolean;
   inboundBuses: ReturnType<typeof useRide>["inboundBuses"];
-  handleBoardClick: () => void;
   groupSize: number;
   setModal: ReturnType<typeof useRide>["setModal"];
 }) {
   if (activeTap) {
     return (
       <p className="text-xs text-ink-500">
-        You&apos;re on board — trip details and tap off are in the trip hero above.
+        Payment is complete. Trip details are in the hero above.
       </p>
     );
   }
@@ -184,19 +152,7 @@ function QuickActionsBody({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <ActionButton
-          icon={Nfc}
-          label="Tap to board"
-          sub={
-            inboundBuses.length === 0
-              ? "No active buses nearby"
-              : "Board via API (demo)"
-          }
-          tone="primary"
-          disabled={busy || inboundBuses.length === 0}
-          onClick={handleBoardClick}
-        />
+      <div className="grid grid-cols-1 gap-3">
         <ActionButton
           icon={Users}
           label="Boarding as a group"
@@ -283,7 +239,7 @@ function QuickActionsHeader({ onBoard }: { onBoard: boolean }) {
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-sm font-semibold text-brand-deep">Quick actions</h3>
       <p className="text-xs text-ink-500">
-        {onBoard ? "Boarding complete" : "Tap on / tap off"}
+        {onBoard ? "Boarding complete" : "Boarding payment"}
       </p>
     </div>
   );

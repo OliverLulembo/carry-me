@@ -9,14 +9,27 @@ function resolveBaseUrl(): string {
 
   // When running `expo start` Metro reports the laptop's LAN host. That's the
   // most reliable URL for a physical device on the same network.
+  const constants = Constants as typeof Constants & {
+    manifest?: { debuggerHost?: string; hostUri?: string };
+    manifest2?: {
+      extra?: {
+        expoClient?: { hostUri?: string };
+        expoGo?: { developer?: { host?: string } };
+      };
+    };
+  };
   const hostUri =
     Constants.expoConfig?.hostUri ??
-    (Constants as { manifest2?: { extra?: { expoGo?: { developer?: { host?: string } } } } })
-      .manifest2?.extra?.expoGo?.developer?.host ??
+    constants.manifest?.debuggerHost ??
+    constants.manifest?.hostUri ??
+    constants.manifest2?.extra?.expoClient?.hostUri ??
+    constants.manifest2?.extra?.expoGo?.developer?.host ??
     null;
   if (hostUri) {
-    const host = hostUri.split(":")[0];
-    return `http://${host}:3000`;
+    const host = hostUri.replace(/^https?:\/\//, "").split(":")[0];
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return `http://${host}:3000`;
+    }
   }
 
   // Last-ditch platform fallbacks.

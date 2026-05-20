@@ -11,7 +11,7 @@ export const colors = {
     secondary: "#BEB7A4",
     secondary600: "#A9A28F",
     accent: "#FFFFFC",
-    deep: "#000000",
+    deep: "#1A1814",
   },
   ink: {
     900: "#1A1814",
@@ -30,7 +30,7 @@ export const colors = {
     danger: "#EF4444",
   },
   white: "#FFFFFF",
-  black: "#000000",
+  black: "#1A1814",
 } as const;
 
 // Pre-composed tints used by Pills, hover states, and ambient orbs. Kept in one

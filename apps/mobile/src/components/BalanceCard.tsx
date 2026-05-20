@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { colors, fontSize, radii, shadow, spacing, tints } from "@/theme/tokens";
@@ -68,19 +69,31 @@ export function BalanceCard({
 // the same file because it has no use outside the balance card.
 function LinkedDevicesList({ devices }: { devices: LinkedDevice[] }) {
   const activeCount = devices.filter((d) => d.active).length;
+  const [open, setOpen] = useState(false);
 
   return (
     <View style={styles.devices}>
       <View style={styles.devicesHead}>
         <Text style={styles.devicesTitle}>LINKED DEVICES</Text>
-        <View style={styles.devicesCountPill}>
+        <Pressable
+          onPress={() => setOpen((value) => !value)}
+          style={({ pressed }) => [
+            styles.devicesCountPill,
+            pressed && { opacity: 0.75 },
+          ]}
+        >
           <Text style={styles.devicesCountText}>
             {activeCount}/{devices.length} active
           </Text>
-        </View>
+          <Feather
+            name={open ? "chevron-up" : "chevron-down"}
+            size={12}
+            color={colors.ink[700]}
+          />
+        </Pressable>
       </View>
 
-      {devices.length === 0 ? (
+      {!open ? null : devices.length === 0 ? (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyTitle}>No devices linked yet</Text>
           <Text style={styles.emptySub}>
@@ -234,6 +247,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
   devicesCountPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radii.pill,

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Bus, Clock, Users } from "lucide-react";
 
 export type InboundBus = {
@@ -14,6 +17,8 @@ export function InboundBuses({
   isLiveArrival,
   buses,
   variant = "card",
+  onPayNow,
+  payingTripId,
 }: {
   stopName: string;
   isLiveArrival: boolean;
@@ -22,8 +27,11 @@ export function InboundBuses({
   // "embedded" — rendered inside another card (e.g. TripHero); drops the
   //              outer card wrapper and the now-redundant stop subtitle.
   variant?: "card" | "embedded";
+  onPayNow?: (tripId: string) => void;
+  payingTripId?: string | null;
 }) {
   const isEmbedded = variant === "embedded";
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
   return (
     <div
@@ -72,11 +80,16 @@ export function InboundBuses({
             const fillPct = Math.min(100, ((b.capacity - b.seatsAvailable) / b.capacity) * 100);
             const fillTone =
               fillPct < 50 ? "bg-success" : fillPct < 80 ? "bg-warn" : "bg-danger";
+            const selected = selectedTripId === b.tripId;
             return (
               <li
                 key={b.tripId}
-                className={`p-4 rounded-xl border border-ink-100 hover:border-brand-primary/30 transition ${
-                  isEmbedded ? "bg-white/80 backdrop-blur" : ""
+                className={`p-4 rounded-xl border transition ${
+                  selected
+                    ? "border-brand-primary bg-brand-primary/10"
+                    : "border-ink-100 hover:border-brand-primary/30"
+                } ${
+                  isEmbedded && !selected ? "bg-white/80 backdrop-blur" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -111,6 +124,26 @@ export function InboundBuses({
                     <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
                       {b.seatsAvailable === 1 ? "seat free" : "seats free"}
                     </div>
+                    {onPayNow && !selected && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTripId(b.tripId)}
+                        disabled={payingTripId != null}
+                        className="mt-3 inline-flex items-center justify-center rounded-lg border border-brand-primary px-3 py-2 text-xs font-bold text-brand-primary hover:bg-brand-primary/10 disabled:opacity-60"
+                      >
+                        Pick bus
+                      </button>
+                    )}
+                    {onPayNow && selected && (
+                      <button
+                        type="button"
+                        onClick={() => onPayNow(b.tripId)}
+                        disabled={payingTripId != null}
+                        className="mt-3 inline-flex items-center justify-center rounded-lg bg-brand-primary px-3 py-2 text-xs font-bold text-white hover:bg-brand-primary-600 disabled:opacity-60"
+                      >
+                        {payingTripId === b.tripId ? "Paying..." : "Pay now"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </li>

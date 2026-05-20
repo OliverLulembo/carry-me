@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { formatZmw, formatCredits, timeAgo } from "@/lib/format";
 import {
+  ChevronDown,
+  ChevronUp,
   Plus,
   Send,
   Loader2,
@@ -195,6 +197,7 @@ export function BalanceCard({
 
 function LinkedDevicesList({ devices }: { devices: LinkedDevice[] }) {
   const activeCount = devices.filter((d) => d.active).length;
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="mt-6 pt-5 border-t border-ink-100">
@@ -202,12 +205,17 @@ function LinkedDevicesList({ devices }: { devices: LinkedDevice[] }) {
         <p className="text-xs uppercase tracking-wider text-ink-500 font-semibold">
           Linked devices
         </p>
-        <span className="text-[10px] font-semibold text-ink-700 px-2 py-0.5 rounded-full border border-ink-100 bg-surface-subtle tabular-nums">
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-ink-700 px-2 py-1 rounded-full border border-ink-100 bg-surface-subtle hover:bg-white tabular-nums"
+        >
           {activeCount}/{devices.length || 0} active
-        </span>
+          {open ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
       </div>
 
-      {devices.length === 0 ? (
+      {!open ? null : devices.length === 0 ? (
         <div className="px-3 py-4 rounded-xl border border-ink-100 bg-surface-subtle text-center">
           <p className="text-xs font-medium text-ink-700">
             No devices linked yet

@@ -2,6 +2,7 @@ import { TapStatus, TripStatus, WalletEntryKind } from "@prisma/client";
 import { db } from "./db";
 import { FareNotConfiguredError, lookupFareCredits, stopOnRoute } from "./fare";
 import { computeNextRouteStop } from "./route-position";
+import { distanceMeters } from "./format";
 
 export class TapError extends Error {
   constructor(
@@ -19,7 +20,7 @@ export async function getActivePassengerTap(passengerId: string) {
     where: { passengerId, status: TapStatus.HELD },
     include: {
       onStop: { select: { id: true, name: true } },
-      offStop: { select: { id: true, name: true } },
+      offStop: { select: { id: true, name: true, lat: true, lng: true } },
       trip: {
         select: {
           id: true,
@@ -50,6 +51,7 @@ export async function tapOn(params: {
   passengerId: string;
   tripId: string;
   stopId: string;
+  destinationStopId?: string | null;
   groupSize?: number;
 }) {
   const groupSize = params.groupSize ?? 1;
@@ -60,7 +62,7 @@ export async function tapOn(params: {
   const existing = await getActivePassengerTap(params.passengerId);
   if (existing) {
     throw new TapError(
-      "You already have an active ride. Tap off before boarding again.",
+      "You already have an active ride. Finish that ride before boarding again.",
       "ACTIVE_TAP_EXISTS",
       409,
     );
@@ -90,9 +92,121 @@ export async function tapOn(params: {
     throw new TapError("This stop is not on the bus route", "STOP_NOT_ON_ROUTE");
   }
 
+  if (params.destinationStopId) {
+    if (params.destinationStopId === params.stopId) {
+      throw new TapError("Destination must differ from where you board", "SAME_STOP");
+    }
+    if (!(await stopOnRoute(trip.routeId, params.destinationStopId))) {
+      throw new TapError("Destination is not on this bus route", "DESTINATION_NOT_ON_ROUTE");
+    }
+  }
+
   const onboard = trip.taps.reduce((sum, t) => sum + t.groupSize, 0);
   if (onboard + groupSize > trip.bus.capacity) {
     throw new TapError("Not enough seats on this bus", "BUS_FULL", 409);
+  }
+
+  if (params.destinationStopId) {
+    let creditsPerPassenger: number;
+    try {
+      creditsPerPassenger = await lookupFareCredits(
+        trip.routeId,
+        params.stopId,
+        params.destinationStopId,
+      );
+    } catch (e) {
+      if (e instanceof FareNotConfiguredError) {
+        throw new TapError(
+          "Fare not configured for this trip. Contact support.",
+          "FARE_NOT_CONFIGURED",
+          422,
+        );
+      }
+      throw e;
+    }
+
+    const finalCredits = creditsPerPassenger * groupSize;
+    const wallet = await db.wallet.findUnique({ where: { userId: params.passengerId } });
+    if (!wallet) {
+      throw new TapError("Wallet not found", "NO_WALLET", 404);
+    }
+    if (wallet.balance < finalCredits) {
+      throw new TapError(
+        `Insufficient balance. This trip costs ${finalCredits} credits; you have ${wallet.balance}.`,
+        "INSUFFICIENT_BALANCE",
+        402,
+      );
+    }
+
+    const destination = await db.busStop.findUnique({
+      where: { id: params.destinationStopId },
+      select: { id: true, name: true },
+    });
+    if (!destination) {
+      throw new TapError("Destination stop not found", "STOP_NOT_FOUND", 404);
+    }
+
+    const tap = await db.$transaction(async (tx) => {
+      const created = await tx.tap.create({
+        data: {
+          tripId: trip.id,
+          passengerId: params.passengerId,
+          onStopId: params.stopId,
+          offStopId: params.destinationStopId,
+          groupSize,
+          reservedCredits: finalCredits,
+          finalCredits,
+          status: TapStatus.HELD,
+          syncedAt: new Date(),
+        },
+        include: {
+          onStop: { select: { id: true, name: true } },
+          offStop: { select: { id: true, name: true } },
+          trip: {
+            include: {
+              bus: { select: { plate: true } },
+              route: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+      const newBalance = wallet.balance - finalCredits;
+      await tx.walletEntry.create({
+        data: {
+          walletId: wallet.id,
+          amount: -finalCredits,
+          kind: WalletEntryKind.TRIP_DEBIT,
+          balanceAfter: newBalance,
+          reference: created.id,
+          note: `Trip ${created.onStop.name} -> ${destination.name}`,
+        },
+      });
+      await tx.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: newBalance },
+      });
+      await tx.stopArrival.updateMany({
+        where: {
+          userId: params.passengerId,
+          stopId: params.stopId,
+          cancelledAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: { cancelledAt: new Date() },
+      });
+      return created;
+    });
+
+    return {
+      tap,
+      trip,
+      fare: {
+        creditsPerPassenger,
+        groupSize,
+        totalCredits: finalCredits,
+      },
+      balance: wallet.balance - finalCredits,
+    };
   }
 
   const tap = await db.tap.create({
@@ -271,6 +385,10 @@ export function serializeActiveTap(
       : null;
 
   const nextStop = computeNextRouteStop(routeStops, busPosition);
+  const distanceToDestinationMeters =
+    tap.offStop && busPosition
+      ? Math.round(distanceMeters(busPosition, tap.offStop))
+      : null;
 
   return {
     id: tap.id,
@@ -282,6 +400,11 @@ export function serializeActiveTap(
     offStop: tap.offStop,
     busPlate: tap.trip.bus.plate,
     nextStop: nextStop ? { id: nextStop.id, name: nextStop.name } : null,
+    distanceToDestinationMeters,
+    etaToDestinationMinutes:
+      distanceToDestinationMeters != null
+        ? Math.max(1, Math.round((distanceToDestinationMeters / 1000 / 25) * 60))
+        : null,
     route: {
       id: tap.trip.route.id,
       name: tap.trip.route.name,

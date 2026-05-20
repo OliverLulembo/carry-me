@@ -81,7 +81,9 @@ export async function GET(req: NextRequest) {
         : "/dashboard";
   const redirectParam = req.nextUrl.searchParams.get("redirect");
   const path = redirectParam?.startsWith("/") ? redirectParam : defaultPath;
-  const url = new URL(path, req.url);
+  const host = req.headers.get("host") ?? req.nextUrl.host;
+  const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
+  const url = new URL(path, `${proto}://${host}`);
   const res = NextResponse.redirect(url);
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

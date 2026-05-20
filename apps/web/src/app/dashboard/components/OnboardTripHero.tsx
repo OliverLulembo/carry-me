@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Bus, Loader2, LogOut, Nfc, Route } from "lucide-react";
+import { Bus, Loader2, Nfc, Route } from "lucide-react";
 import type { ActiveTap } from "./RideProvider";
 
 export function OnboardTripHero(props: {
@@ -8,9 +8,12 @@ export function OnboardTripHero(props: {
   rideLoading: boolean;
   rideBusy: boolean;
   isDestinationNext: boolean;
-  onTapOff: () => void;
 }) {
-  const { activeTap, rideLoading, rideBusy, isDestinationNext, onTapOff } = props;
+  const { activeTap, rideLoading, rideBusy, isDestinationNext } = props;
+  const progressPct =
+    activeTap.distanceToDestinationMeters == null
+      ? 34
+      : Math.max(8, Math.min(92, 100 - (activeTap.distanceToDestinationMeters / 8000) * 100));
 
   return (
     <div className="card relative overflow-hidden p-6 sm:p-8 h-full bg-deep-gradient text-ink-700 min-h-[420px]">
@@ -64,9 +67,30 @@ export function OnboardTripHero(props: {
 
         <p className="mt-2 text-ink-500 text-sm max-w-md">
           Boarded at <span className="font-medium text-ink-700">{activeTap.onStop.name}</span>
-          {activeTap.groupSize > 1 ? ` · ${activeTap.groupSize} passengers` : ""}. Fare
-          is charged when you tap off at your destination.
+          {activeTap.groupSize > 1 ? ` · ${activeTap.groupSize} passengers` : ""}. Payment is
+          completed when boarding.
         </p>
+
+        <div className="mt-6 rounded-2xl border border-ink-100 bg-white/70 p-4 backdrop-blur">
+          <div className="flex items-center justify-between gap-3 text-xs font-semibold text-ink-700">
+            <span>{activeTap.onStop.name}</span>
+            <span>{activeTap.offStop?.name ?? "Destination"}</span>
+          </div>
+          <div className="mt-3 h-2 rounded-full bg-ink-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-brand-primary transition-all"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p className="mt-3 text-sm font-semibold text-brand-deep">
+            {activeTap.etaToDestinationMinutes != null
+              ? `${activeTap.etaToDestinationMinutes} min`
+              : "On route"}
+            {activeTap.distanceToDestinationMeters != null
+              ? ` · ${(activeTap.distanceToDestinationMeters / 1000).toFixed(1)} km remaining`
+              : ""}
+          </p>
+        </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
@@ -74,23 +98,16 @@ export function OnboardTripHero(props: {
             Ride in progress
           </span>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink-100 bg-white/60 backdrop-blur text-xs font-medium text-ink-700">
-            <Nfc className="w-3.5 h-3.5" size={14} /> Tap off to pay
+            <Nfc className="w-3.5 h-3.5" size={14} /> Paid at boarding
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={onTapOff}
-          disabled={rideBusy}
-          className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-brand-primary text-white font-semibold hover:bg-brand-primary-600 transition shadow-pop disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {rideBusy ? (
-            <Loader2 className="w-4 h-4 animate-spin" size={16} />
-          ) : (
-            <LogOut className="w-4 h-4" size={16} />
-          )}
-          Tap off
-        </button>
+        {rideBusy && (
+          <p className="mt-4 text-xs text-ink-500 flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" size={14} />
+            Updating payment status...
+          </p>
+        )}
       </div>
     </div>
   );

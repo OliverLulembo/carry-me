@@ -29,21 +29,25 @@ export function DashboardHeader({
         </Link>
 
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-ink-500">
-          <a className="text-brand-deep" href="/dashboard">Dashboard</a>
-          <a className="hover:text-brand-deep transition" href="#">Trips</a>
-          <a className="hover:text-brand-deep transition" href="#">Wallet</a>
-          <a className="hover:text-brand-deep transition" href="#">Support</a>
+          <Link className="text-brand-deep" href="/dashboard">Dashboard</Link>
+          <Link className="hover:text-brand-deep transition" href="/dashboard/trips">Trips</Link>
+          <Link className="hover:text-brand-deep transition" href="/dashboard/wallet">Wallet</Link>
+          <Link className="hover:text-brand-deep transition" href="/dashboard/support">Support</Link>
         </nav>
 
         <div className="flex items-center gap-2">
-          <button
+          <Link
+            href="/dashboard/notifications"
             aria-label="Notifications"
             className="w-9 h-9 grid place-items-center rounded-full text-ink-700 hover:bg-surface-subtle transition relative"
           >
             <Bell className="w-4.5 h-4.5" size={18} />
             <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-brand-primary" />
-          </button>
-          <button className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-surface-subtle transition">
+          </Link>
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-surface-subtle transition"
+          >
             <div className="w-8 h-8 rounded-full bg-brand-deep text-white grid place-items-center text-xs font-bold">
               {initials}
             </div>
@@ -54,7 +58,7 @@ export function DashboardHeader({
               <p className="text-[10px] text-ink-500 leading-tight">{user.phone}</p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-ink-500" size={14} />
-          </button>
+          </Link>
         </div>
       </div>
     </header>

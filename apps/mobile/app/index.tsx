@@ -25,7 +25,7 @@ const ONBOARDING = [
   require("../assets/Splash Screens/Splash Screen3.jpg"),
 ];
 
-const VERTICAL_LOGO = require("../assets/Vertical Carry Me logo white text.png");
+const VERTICAL_LOGO = require("../assets/Vertical all white logo.png");
 
 const LANGUAGES = [
   { code: "en", name: "English", region: "Available now", available: true },
@@ -44,7 +44,7 @@ const LANGUAGES = [
 ];
 
 export default function Index() {
-  const { status, signInDev, error } = useAuth();
+  const { status, signInDev, signOut, user, error } = useAuth();
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
@@ -75,18 +75,6 @@ export default function Index() {
     };
   }, []);
 
-  useEffect(() => {
-    if (
-      !checkingSetup &&
-      !showOnboarding &&
-      !showLanguagePicker &&
-      status === "signedOut" &&
-      !error
-    ) {
-      signInDev().catch(() => {});
-    }
-  }, [status, error, signInDev, checkingSetup, showOnboarding, showLanguagePicker]);
-
   async function advanceOnboarding() {
     if (slide < ONBOARDING.length - 1) {
       setSlide((current) => current + 1);
@@ -102,7 +90,34 @@ export default function Index() {
     setShowLanguagePicker(false);
   }
 
-  if (status === "signedIn" && !showLanguagePicker) {
+  if (
+    status === "signedIn" &&
+    user?.role !== "PASSENGER" &&
+    !checkingSetup &&
+    !showOnboarding &&
+    !showLanguagePicker
+  ) {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.center}>
+          <Image source={VERTICAL_LOGO} resizeMode="contain" style={styles.loginLogo} />
+          <Text style={styles.tagline}>Logged in as {user?.role.toLowerCase()}</Text>
+          <Text style={styles.desc}>
+            Driver and admin consoles are available on the web preview.
+          </Text>
+          <Button
+            label="Back to login"
+            variant="onPrimary"
+            onPress={() => signOut()}
+            block
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (status === "signedIn" && !checkingSetup && !showOnboarding && !showLanguagePicker) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -137,7 +152,7 @@ export default function Index() {
           <Text style={styles.nextButtonText}>
             {slide === ONBOARDING.length - 1 ? "Get started" : "Next"}
           </Text>
-          <Feather name="arrow-right" size={18} color={colors.brand.primary} />
+          <Feather name="arrow-right" size={18} color={colors.white} />
         </Pressable>
       </View>
     );
@@ -206,21 +221,42 @@ export default function Index() {
           <>
             {error && (
               <View style={styles.errorBox}>
-                <Feather name="alert-triangle" size={14} color={colors.white} />
+                <Feather name="alert-triangle" size={14} color={colors.status.danger} />
                 <Text style={styles.errorText} numberOfLines={3}>
                   {error}
                 </Text>
               </View>
             )}
             <Button
-              label="Open passenger dashboard (dev)"
+              label="Log in as Passenger"
               variant="onPrimary"
               onPress={() => signInDev()}
               rightIcon={
-                <Feather name="arrow-right" size={16} color={colors.brand.deep} />
+                <Feather name="arrow-right" size={16} color={colors.brand.primary} />
               }
               block
               style={{ marginTop: spacing.lg }}
+            />
+            <Button
+              label="Log in as Driver"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev("+260977000002")}
+              block
+              style={{ marginTop: spacing.md }}
+            />
+            <Button
+              label="Log in as Admin"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev("+260977000004")}
+              block
+              style={{ marginTop: spacing.sm }}
+            />
+            <Button
+              label="Sign up"
+              variant="onPrimaryGhost"
+              onPress={() => signInDev()}
+              block
+              style={{ marginTop: spacing.sm }}
             />
             <Text style={styles.help}>
               Make sure the API is reachable at{"\n"}
@@ -281,7 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.18)",
+    backgroundColor: "rgba(255,255,255,0.14)",
     borderRadius: radii.md,
   },
   errorText: {
@@ -330,24 +366,24 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.36)",
+    backgroundColor: colors.ink[100],
   },
   dotActive: {
     width: 24,
-    backgroundColor: colors.white,
+    backgroundColor: colors.brand.primary,
   },
   nextButton: {
     width: "100%",
     minHeight: 54,
     borderRadius: radii.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.brand.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   nextButtonText: {
-    color: colors.brand.primary,
+    color: colors.white,
     fontSize: fontSize.md,
     fontWeight: "800",
   },

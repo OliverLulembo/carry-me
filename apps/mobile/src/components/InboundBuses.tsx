@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, View, Text, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors, fontSize, radii, spacing, tints } from "@/theme/tokens";
@@ -22,14 +22,19 @@ export function InboundBuses({
   buses,
   loading,
   variant = "card",
+  onPayNow,
+  payingTripId,
 }: {
   stopName: string;
   isLiveArrival: boolean;
   buses: InboundBus[];
   loading?: boolean;
   variant?: Variant;
+  onPayNow?: (tripId: string) => void;
+  payingTripId?: string | null;
 }) {
   const isEmbedded = variant === "embedded";
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
 
   const body = (
     <>
@@ -98,7 +103,16 @@ export function InboundBuses({
       ) : (
         <View style={{ gap: 10 }}>
           {buses.map((b) => (
-            <BusRow key={b.tripId} bus={b} embedded={isEmbedded} />
+            <BusRow
+              key={b.tripId}
+              bus={b}
+              embedded={isEmbedded}
+              onPayNow={onPayNow}
+              paying={payingTripId === b.tripId}
+              paymentDisabled={payingTripId != null}
+              selected={selectedTripId === b.tripId}
+              onSelect={() => setSelectedTripId(b.tripId)}
+            />
           ))}
         </View>
       )}
@@ -111,7 +125,23 @@ export function InboundBuses({
   return <Card>{body}</Card>;
 }
 
-function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
+function BusRow({
+  bus,
+  embedded,
+  onPayNow,
+  paying,
+  paymentDisabled,
+  selected,
+  onSelect,
+}: {
+  bus: InboundBus;
+  embedded: boolean;
+  onPayNow?: (tripId: string) => void;
+  paying: boolean;
+  paymentDisabled: boolean;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const blink = useRef(new Animated.Value(1)).current;
   const fillPct = Math.max(
     0,
@@ -149,7 +179,16 @@ function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
   }, [blink, shouldBlink]);
 
   return (
-    <View style={[styles.row, embedded && styles.rowEmbedded]}>
+    <Pressable
+      onPress={onSelect}
+      disabled={paymentDisabled}
+      style={({ pressed }) => [
+        styles.row,
+        embedded && styles.rowEmbedded,
+        selected && styles.rowSelected,
+        pressed && { opacity: 0.9 },
+      ]}
+    >
       <View style={{ flex: 1 }}>
         <View style={styles.rowHead}>
           <View style={styles.plate}>
@@ -224,8 +263,34 @@ function BusRow({ bus, embedded }: { bus: InboundBus; embedded: boolean }) {
         >
           {bus.seatsAvailable === 1 ? "seat free" : "seats free"}
         </Text>
+        {onPayNow && !selected && (
+          <Pressable
+            onPress={onSelect}
+            disabled={paymentDisabled}
+            style={({ pressed }) => [
+              styles.pickBus,
+              pressed && { opacity: 0.85 },
+              paymentDisabled && { opacity: 0.65 },
+            ]}
+          >
+            <Text style={styles.pickBusText}>Pick bus</Text>
+          </Pressable>
+        )}
+        {onPayNow && selected && (
+          <Pressable
+            onPress={() => onPayNow(bus.tripId)}
+            disabled={paymentDisabled}
+            style={({ pressed }) => [
+              styles.payNow,
+              pressed && { opacity: 0.85 },
+              paymentDisabled && { opacity: 0.65 },
+            ]}
+          >
+            <Text style={styles.payNowText}>{paying ? "Paying..." : "Pay now"}</Text>
+          </Pressable>
+        )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -397,5 +462,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
+  },
+  rowSelected: {
+    borderColor: colors.brand.primary,
+    backgroundColor: tints.primarySoft,
+  },
+  payNow: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.md,
+    backgroundColor: colors.brand.primary,
+  },
+  payNowText: {
+    color: colors.white,
+    fontWeight: "800",
+    fontSize: 10,
+  },
+  pickBus: {
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.brand.primary,
+  },
+  pickBusText: {
+    color: colors.brand.primary,
+    fontWeight: "800",
+    fontSize: 10,
   },
 });

@@ -171,6 +171,7 @@ export function useDashboard() {
           origin,
           nextBusArrivalAt: computeNextBusArrivalAt(inboundRes.buses),
           activeTap: activeRes.tap,
+          liveArrival: activeRes.tap ? null : s.liveArrival,
         }));
       } catch (err) {
         const apiErr = err instanceof ApiError ? err : null;

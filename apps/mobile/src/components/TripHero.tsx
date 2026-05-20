@@ -47,6 +47,8 @@ type Props = {
   error: string | null;
   onLogArrival: (stopId: string, destinationStopId?: string) => void;
   onCancelArrival: () => void;
+  onPayNow: (tripId: string) => void;
+  payingTripId?: string | null;
 };
 
 // Mirrors apps/web TripHero. The pre-arrival view is destination-first: pick a
@@ -63,6 +65,8 @@ export function TripHero({
   error,
   onLogArrival,
   onCancelArrival,
+  onPayNow,
+  payingTripId,
 }: Props) {
   const [destination, setDestination] = useState<StopOption | null>(null);
   const [arrivalStopId, setArrivalStopId] = useState<string | undefined>(
@@ -82,6 +86,8 @@ export function TripHero({
         inboundBuses={inboundBuses}
         busy={busy}
         onCancel={onCancelArrival}
+        onPayNow={onPayNow}
+        payingTripId={payingTripId}
       />
     );
   }
@@ -169,11 +175,12 @@ export function TripHero({
             ? `I'm here — find my bus to ${destination.name}`
             : "Pick a destination to continue"
         }
+        variant="onPrimary"
         loading={busy}
         disabled={!arrivalStopId || !destination}
         rightIcon={
           destination ? (
-            <Feather name="arrow-right" size={16} color={colors.white} />
+            <Feather name="arrow-right" size={16} color={colors.brand.primary} />
           ) : undefined
         }
         onPress={() =>
@@ -198,11 +205,15 @@ function WaitingHero({
   inboundBuses,
   busy,
   onCancel,
+  onPayNow,
+  payingTripId,
 }: {
   arrival: LiveArrival;
   inboundBuses: InboundBus[];
   busy: boolean;
   onCancel: () => void;
+  onPayNow: (tripId: string) => void;
+  payingTripId?: string | null;
 }) {
   const nextBusCountdown = useCountdown(arrival.nextBusArrivalAt);
 
@@ -267,6 +278,8 @@ function WaitingHero({
           isLiveArrival
           buses={inboundBuses}
           variant="embedded"
+          onPayNow={onPayNow}
+          payingTripId={payingTripId}
         />
       </View>
 
@@ -456,7 +469,7 @@ function formatCountdown(totalSeconds: number) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface.raised,
+    backgroundColor: colors.brand.primary,
     borderRadius: radii.xl,
     padding: spacing.xl,
     overflow: "hidden",
@@ -475,7 +488,7 @@ const styles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: tints.primarySoft,
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   darkOrbA: {
     position: "absolute",
@@ -501,14 +514,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   eyebrow: {
-    color: colors.brand.primary,
+    color: "rgba(255,255,255,0.82)",
     fontSize: fontSize.xs,
     fontWeight: "800",
     letterSpacing: 1.4,
   },
   heading: {
     marginTop: spacing.md,
-    color: colors.brand.deep,
+    color: colors.white,
     fontSize: fontSize.xxl,
     fontWeight: "800",
     letterSpacing: -0.4,
@@ -516,14 +529,14 @@ const styles = StyleSheet.create({
   },
   sub: {
     marginTop: 6,
-    color: colors.ink[500],
+    color: "rgba(255,255,255,0.82)",
     fontSize: fontSize.sm,
     lineHeight: 19,
   },
   pickLabel: {
     marginTop: 4,
     marginBottom: 8,
-    color: colors.ink[500],
+    color: "rgba(255,255,255,0.82)",
     fontSize: fontSize.xs,
     fontWeight: "700",
     letterSpacing: 1.2,

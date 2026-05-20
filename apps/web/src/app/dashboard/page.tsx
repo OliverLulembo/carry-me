@@ -150,6 +150,16 @@ export default async function DashboardPage() {
             />
           </section>
 
+          {!liveArrival && (
+            <section className="col-span-12 lg:col-span-4">
+              <InboundBuses
+                stopName={nearest[0]?.name ?? "Nearest stop"}
+                isLiveArrival={false}
+                buses={inboundBuses}
+              />
+            </section>
+          )}
+
           {/* BALANCE */}
           <section className="col-span-12 lg:col-span-4">
             <BalanceCard
@@ -160,14 +170,14 @@ export default async function DashboardPage() {
           </section>
 
           {/* QUICK ACTIONS — tap on / group (on-board UI lives in TripHero) */}
-          <section className="col-span-12">
+          <section className="col-span-12 lg:col-span-8">
             <TapActions />
           </section>
 
           {/* INBOUND BUSES at the closest stop — only shown pre-arrival. Once
              the passenger logs an arrival, the same list is rendered inline
              inside TripHero, so a separate card here would just duplicate it. */}
-          {!liveArrival && (
+          {false && !liveArrival && (
             <section className="col-span-12 lg:col-span-7">
               <InboundBuses
                 stopName={nearest[0]?.name ?? "Nearest stop"}
@@ -180,29 +190,41 @@ export default async function DashboardPage() {
           {/* NEAREST STOPS — client-side: upgrades to real geolocation on mount.
              Expands to full width when the standalone Inbound Buses card is
              hidden, so we don't leave a dead column. */}
-          <section
-            className={`col-span-12 ${liveArrival ? "" : "lg:col-span-5"}`}
-          >
-            <NearestStops
-              initialStops={nearest}
-              allStops={allStops}
-              defaultOrigin={DEFAULT_LOCATION}
-              liveStopId={liveArrival?.stopId ?? null}
-            />
+          <section className="col-span-12">
+            <details className="group rounded-2xl bg-brand-primary text-white shadow-pop">
+              <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold">
+                Nearest stops
+              </summary>
+              <div className="p-2 pt-0">
+                <NearestStops
+                  initialStops={nearest}
+                  allStops={allStops}
+                  defaultOrigin={DEFAULT_LOCATION}
+                  liveStopId={liveArrival?.stopId ?? null}
+                />
+              </div>
+            </details>
           </section>
 
           {/* RECENT ACTIVITY */}
           <section className="col-span-12">
-            <RecentActivity
-              entries={recent.map((e) => ({
-                id: e.id,
-                amount: e.amount,
-                kind: e.kind,
-                note: e.note,
-                createdAt: e.createdAt.toISOString(),
-                balanceAfter: e.balanceAfter,
-              }))}
-            />
+            <details className="group rounded-2xl bg-brand-primary text-white shadow-pop">
+              <summary className="cursor-pointer list-none px-5 py-4 text-sm font-semibold">
+                Recent activity
+              </summary>
+              <div className="p-2 pt-0">
+                <RecentActivity
+                  entries={recent.map((e) => ({
+                    id: e.id,
+                    amount: e.amount,
+                    kind: e.kind,
+                    note: e.note,
+                    createdAt: e.createdAt.toISOString(),
+                    balanceAfter: e.balanceAfter,
+                  }))}
+                />
+              </div>
+            </details>
           </section>
         </div>
         </RideProvider>

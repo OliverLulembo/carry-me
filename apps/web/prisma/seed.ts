@@ -181,18 +181,10 @@ async function main() {
     });
   }
 
-  // On-board taps for the live trip manifest
+  // Clear old demo taps so the passenger dashboard starts at the normal
+  // planning step. Payments are now made when boarding, so we do not seed an
+  // active passenger ride by default.
   await db.tap.deleteMany({ where: { tripId: trip.id } });
-  await db.tap.create({
-    data: {
-      tripId: trip.id,
-      passengerId: passenger.id,
-      onStopId: stops[1].id,
-      groupSize: 1,
-      reservedCredits: 0,
-      status: "HELD",
-    },
-  });
 
   // ── Linked devices for the demo passenger ────────────────────────────────
   // v1 ships single-device; we seed a few here so the dashboard's "Linked
